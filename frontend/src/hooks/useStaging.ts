@@ -36,8 +36,9 @@ export const useStaging = () => {
     queryKey: ['staging-status', stagingId],
     queryFn: () => stagingId ? stagingApi.getStagingStatus(stagingId) : Promise.resolve(null),
     enabled: !!stagingId,
-    refetchInterval: (data) => {
+    refetchInterval: (query) => {
       // Stop polling when completed or failed
+      const data = query.state.data;
       if (!data || data.status === 'completed' || data.status === 'failed') {
         return false;
       }
@@ -52,8 +53,9 @@ export const useStaging = () => {
     queryKey: ['batch-status', batchId],
     queryFn: () => batchId ? stagingApi.getBatchStatus(batchId) : Promise.resolve(null),
     enabled: !!batchId,
-    refetchInterval: (data) => {
+    refetchInterval: (query) => {
       // Stop polling when completed, failed, or partial (all processing done)
+      const data = query.state.data;
       if (!data || data.status === 'completed' || data.status === 'failed') {
         return false;
       }
@@ -96,7 +98,7 @@ export const useStaging = () => {
     // Batch staging state
     batchId,
     batchStaging: batchStatusQuery.data,
-    isBatchStaging: batchStagingMutation.isPending || (batchStatusQuery.data?.processing > 0),
+    isBatchStaging: batchStagingMutation.isPending || ((batchStatusQuery.data?.processing ?? 0) > 0),
     isBatchCompleted: batchStatusQuery.data?.status === 'completed',
     isBatchFailed: batchStatusQuery.data?.status === 'failed',
     isBatchPartial: batchStatusQuery.data?.status === 'partial',

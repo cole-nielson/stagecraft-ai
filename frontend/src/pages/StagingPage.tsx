@@ -198,7 +198,7 @@ const StagingPage: React.FC<StagingPageProps> = ({ onGenerationRequest, user, cu
                 : (staging?.estimated_time_seconds || 25)
             }
             progress={75} // This would come from real-time updates in production
-            originalImageUrl={imagePreviewUrl}
+            originalImageUrl={imagePreviewUrl ?? undefined}
             uploadedFileName={
               batchMode 
                 ? `${uploadedFiles.length} images`
@@ -381,7 +381,7 @@ const StagingPage: React.FC<StagingPageProps> = ({ onGenerationRequest, user, cu
                           Your Original Image
                         </Text>
                         <Text size="sm" c="dimmed">
-                          <strong>{uploadedFile.name}</strong> ({Math.round(uploadedFile.size / 1024)} KB)
+                          <strong>{uploadedFile?.name}</strong> ({Math.round((uploadedFile?.size ?? 0) / 1024)} KB)
                         </Text>
                       </div>
 

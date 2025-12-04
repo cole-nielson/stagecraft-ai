@@ -82,32 +82,6 @@ export const stagecraftTheme = createTheme({
           },
         },
       },
-      variants: {
-        luxuryPrimary: () => ({
-          root: {
-            background: 'linear-gradient(135deg, #C9A961 0%, #D4AF37 100%)',
-            color: '#2D3748',
-            border: 'none',
-            boxShadow: '0 4px 12px rgba(201, 169, 97, 0.3)',
-            '&:hover': {
-              background: 'linear-gradient(135deg, #D4AF37 0%, #E6C547 100%)',
-              boxShadow: '0 8px 25px rgba(201, 169, 97, 0.4)',
-              transform: 'translateY(-2px)',
-            },
-          },
-        }),
-        luxurySecondary: () => ({
-          root: {
-            background: 'transparent',
-            color: '#1B365D',
-            border: '2px solid #1B365D',
-            '&:hover': {
-              background: '#1B365D',
-              color: '#FFFFFF',
-            },
-          },
-        }),
-      },
     },
     Card: {
       styles: {
