@@ -1,0 +1,85 @@
+version: '3.8'
+
+services:
+  # Frontend
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - REACT_APP_API_URL=http://localhost:8000
+      - REACT_APP_UPLOAD_MAX_SIZE=10485760
+      - REACT_APP_SUPPORTED_FORMATS=image/jpeg,image/png
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+
+  # Backend API  
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgresql://user:password@postgres:5432/stagecraft
+      - REDIS_URL=redis://redis:6379/0
+      - GOOGLE_AI_API_KEY=${GOOGLE_AI_API_KEY}
+      - XAI_API_KEY=${XAI_API_KEY}
+      - SECRET_KEY=${SECRET_KEY:-stagecraft-dev-secret-key}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - JWT_SECRET_KEY=your-jwt-secret-key-change-in-production
+      - CORS_ORIGINS=http://localhost:3000,http://frontend:3000
+      - UPLOAD_DIR=/app/uploads
+      - MAX_UPLOAD_SIZE=10485760
+    volumes:
+      - ./backend:/app
+      - ./uploads:/app/uploads
+    depends_on:
+      - postgres
+      - redis
+
+  # Background Workers (for AI processing)
+  worker:
+    build: ./backend
+    command: celery -A app.celery worker --loglevel=info --concurrency=2 --queues=staging,celery
+    environment:
+      - DATABASE_URL=postgresql://user:password@postgres:5432/stagecraft
+      - REDIS_URL=redis://redis:6379/0
+      - GOOGLE_AI_API_KEY=${GOOGLE_AI_API_KEY}
+      - XAI_API_KEY=${XAI_API_KEY}
+      - SECRET_KEY=${SECRET_KEY:-stagecraft-dev-secret-key}
+      - UPLOAD_DIR=/app/uploads
+    volumes:
+      - ./backend:/app
+      - ./uploads:/app/uploads
+    depends_on:
+      - postgres
+      - redis
+
+  # Database
+  postgres:
+    image: postgres:15
+    environment:
+      - POSTGRES_DB=stagecraft
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  # Cache & Queue
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+volumes:
+  postgres_data:
+  redis_data:

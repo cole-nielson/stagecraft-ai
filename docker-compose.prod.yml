@@ -1,0 +1,86 @@
+version: '3.8'
+
+services:
+  # Frontend
+  frontend:
+    build: 
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+    environment:
+      - REACT_APP_API_URL=https://api.yourdomain.com
+    depends_on:
+      - backend
+
+  # Backend API  
+  backend:
+    build: ./backend
+    environment:
+      - DATABASE_URL=postgresql://user:password@postgres:5432/stagecraft
+      - REDIS_URL=redis://redis:6379/0
+      - GOOGLE_AI_API_KEY=${GOOGLE_AI_API_KEY}
+      - XAI_API_KEY=${XAI_API_KEY}
+      - SECRET_KEY=${SECRET_KEY}
+      - CORS_ORIGINS=https://yourdomain.com
+      - DEBUG=false
+      - LOG_LEVEL=INFO
+    volumes:
+      - ./uploads:/app/uploads
+    depends_on:
+      - postgres
+      - redis
+    restart: unless-stopped
+
+  # Background Workers
+  worker:
+    build: ./backend
+    command: celery -A app.celery worker --loglevel=info --concurrency=4
+    environment:
+      - DATABASE_URL=postgresql://user:password@postgres:5432/stagecraft
+      - REDIS_URL=redis://redis:6379/0
+      - GOOGLE_AI_API_KEY=${GOOGLE_AI_API_KEY}
+      - XAI_API_KEY=${XAI_API_KEY}
+      - SECRET_KEY=${SECRET_KEY}
+    volumes:
+      - ./uploads:/app/uploads
+    depends_on:
+      - postgres
+      - redis
+    restart: unless-stopped
+
+  # Database
+  postgres:
+    image: postgres:15
+    environment:
+      - POSTGRES_DB=stagecraft
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backups:/backups
+    restart: unless-stopped
+
+  # Cache & Queue
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+  # Reverse Proxy
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.prod.conf:/etc/nginx/nginx.conf
+      - ./ssl:/etc/nginx/ssl
+      - ./uploads:/var/www/uploads
+    depends_on:
+      - frontend
+      - backend
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:

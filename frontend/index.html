@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>StageCraft AI - Professional AI Staging for Luxury Real Estate</title>
+    <meta name="description" content="Transform empty properties into beautifully staged spaces with AI. Professional staging for luxury real estate agents and high-end properties." />
+    
+    <!-- Preload key fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    
+    <!-- Theme color for mobile browsers -->
+    <meta name="theme-color" content="#1B365D" />
+    
+    <!-- Open Graph meta tags -->
+    <meta property="og:title" content="StageCraft AI - Professional AI Staging" />
+    <meta property="og:description" content="The most sophisticated AI staging tool for luxury real estate professionals" />
+    <meta property="og:type" content="website" />
+    
+    <!-- Favicon -->
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+    
+    <style>
+      /* Prevent flash of unstyled content */
+      body {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        background-color: #FEFDF8;
+        margin: 0;
+        padding: 0;
+      }
+      
+      /* Loading spinner */
+      .loading-spinner {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 40px;
+        height: 40px;
+        border: 3px solid #EDF2F7;
+        border-top: 3px solid #C9A961;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        z-index: 9999;
+      }
+      
+      @keyframes spin {
+        0% { transform: translate(-50%, -50%) rotate(0deg); }
+        100% { transform: translate(-50%, -50%) rotate(360deg); }
+      }
+      
+      /* Hide spinner when app loads */
+      .app-loaded .loading-spinner {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root">
+      <div class="loading-spinner"></div>
+    </div>
+    <script type="module" src="/src/main.tsx"></script>
+    
+    <script>
+      // Mark app as loaded to hide spinner
+      window.addEventListener('load', () => {
+        document.body.classList.add('app-loaded');
+      });
+    </script>
+  </body>
+</html>

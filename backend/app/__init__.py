@@ -1,0 +1,1 @@
+# StageCraft AI Backend Package
