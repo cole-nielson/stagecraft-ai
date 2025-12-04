@@ -60,7 +60,7 @@ const StagingPage: React.FC<StagingPageProps> = ({ onGenerationRequest, user, cu
       setImagePreviewUrl(url);
       
       // Calculate optimal container height based on image aspect ratio
-      const img = new Image();
+      const img = new window.Image();
       img.onload = () => {
         const containerWidth = 350; // Approximate container width
         const aspectRatio = img.height / img.width;

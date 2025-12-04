@@ -21,5 +21,5 @@ RUN mkdir -p uploads
 # Expose port
 EXPOSE 8000
 
-# Run application
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+# Run application (no --reload in production)
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException
+from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from typing import Optional, List
 import os
@@ -8,20 +8,69 @@ from celery import group
 from ..core.database import get_db
 from ..models.staging import Staging
 from ..services.tasks import process_staging
+from ..services.rate_limiter import rate_limiter
 from ..core.config import settings
 
 router = APIRouter()
 
 
+def get_client_ip(request: Request) -> str:
+    """Get client IP, handling proxies."""
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
+def check_rate_limits(request: Request, image_count: int = 1):
+    """Check both user and global rate limits."""
+    client_ip = get_client_ip(request)
+
+    # Check global limit first
+    global_allowed, global_remaining = rate_limiter.check_global_limit()
+    if not global_allowed:
+        raise HTTPException(
+            status_code=429,
+            detail="Daily limit reached. This free demo allows 30 generations per day. Please try again tomorrow!"
+        )
+
+    # Check user limit
+    user_allowed, user_remaining = rate_limiter.check_user_limit(client_ip)
+    if not user_allowed:
+        raise HTTPException(
+            status_code=429,
+            detail="You've reached your daily limit of 10 free generations. Please try again tomorrow!"
+        )
+
+    # Check if batch would exceed limits
+    if image_count > user_remaining:
+        raise HTTPException(
+            status_code=429,
+            detail=f"You only have {user_remaining} generations remaining today. Please reduce your batch size."
+        )
+
+    if image_count > global_remaining:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Only {global_remaining} generations remaining for today's demo. Please reduce your batch size."
+        )
+
+    return client_ip
+
+
 @router.post("/stage")
 async def stage_room(
+    request: Request,
     image: UploadFile = File(...),
     room_type: Optional[str] = Form(None),
     quality_mode: Optional[str] = Form("premium"),
     db: Session = Depends(get_db)
 ):
     """Upload and stage a room photo with luxury AI staging."""
-    
+
+    # Check rate limits
+    client_ip = check_rate_limits(request, image_count=1)
+
     # Validate file
     if not image.content_type.startswith('image/'):
         raise HTTPException(status_code=400, detail="File must be an image")
@@ -58,7 +107,10 @@ async def stage_room(
     
     # Start background processing
     task = process_staging.delay(str(staging_id))
-    
+
+    # Increment rate limit counter after successful submission
+    rate_limiter.increment_usage(client_ip)
+
     return {
         "id": str(staging_id),
         "status": "processing",
@@ -105,13 +157,17 @@ async def get_staging_status(staging_id: str, db: Session = Depends(get_db)):
 
 @router.post("/stage-batch")
 async def stage_batch(
+    request: Request,
     images: List[UploadFile] = File(...),
     room_types: Optional[List[str]] = Form(None),
     quality_mode: Optional[str] = Form("premium"),
     db: Session = Depends(get_db)
 ):
     """Upload and stage multiple room photos with luxury AI staging."""
-    
+
+    # Check rate limits for batch size
+    client_ip = check_rate_limits(request, image_count=len(images))
+
     # Validate batch size
     if len(images) > 10:
         raise HTTPException(status_code=400, detail="Maximum 10 images allowed per batch")
@@ -178,7 +234,11 @@ async def stage_batch(
     # Execute all tasks as a group for parallel processing
     job = group(task_signatures)
     group_result = job.apply_async()
-    
+
+    # Increment rate limit counter for each image
+    for _ in images:
+        rate_limiter.increment_usage(client_ip)
+
     # Prepare response
     response_items = []
     for staging in staging_records:

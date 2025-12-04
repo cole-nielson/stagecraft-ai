@@ -15,8 +15,8 @@ class AIService:
         # Configure Google Gemini
         if settings.google_ai_api_key:
             genai.configure(api_key=settings.google_ai_api_key)
-            # Use the correct Gemini 2.5 Flash Image model for image generation
-            self.gemini_model = genai.GenerativeModel('gemini-2.5-flash-image-preview')
+            # Use the latest Gemini model for image generation
+            self.gemini_model = genai.GenerativeModel('gemini-3-pro-image-preview')
         else:
             self.gemini_model = None
             
