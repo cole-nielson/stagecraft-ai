@@ -2,10 +2,14 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
 from fastapi.staticfiles import StaticFiles
+from contextlib import asynccontextmanager
 import os
 import logging
 from .core.config import settings
 from .core.exceptions import StageCraftException
+from .core.database import engine, Base
+# Import models to register them with Base
+from .models import Staging, User, Conversation
 from .routes import staging_router, health_router, images_router, auth_router, conversations_router
 from .middleware import (
     stagecraft_exception_handler,
@@ -20,11 +24,29 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 
-# Create FastAPI app
+logger = logging.getLogger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Startup and shutdown events."""
+    # Startup: Create database tables if they don't exist
+    logger.info("Creating database tables if they don't exist...")
+    try:
+        Base.metadata.create_all(bind=engine)
+        logger.info("Database tables ready!")
+    except Exception as e:
+        logger.error(f"Failed to create database tables: {e}")
+    yield
+    # Shutdown
+    logger.info("Shutting down...")
+
+# Create FastAPI app with lifespan
 app = FastAPI(
     title="StageCraft AI",
     description="Premium AI staging for luxury real estate professionals",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan
 )
 
 # CORS middleware
