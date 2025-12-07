@@ -1,263 +1,304 @@
 # StageCraft AI
 
-**The most sophisticated AI staging tool for luxury real estate professionals.**
+**AI-Powered Virtual Staging for Real Estate**
 
-StageCraft AI transforms empty properties into beautifully staged spaces that sell faster and for higher prices. Built specifically for real estate agents who demand premium results without the complexity.
+Transform empty rooms into professionally staged spaces using Google's Gemini AI. Upload a photo of an empty room and receive a photorealistic staged version in seconds.
 
-## 🎯 **Key Features**
-
-- **Professional AI Staging**: Transform empty rooms with luxury furnishings in under 30 seconds
-- **Architectural Integrity**: Never modifies structural elements - preserves authentic character
-- **Luxury Focus**: Three sophisticated styles designed for $1M+ properties
-- **Marketing Ready**: 4K resolution output perfect for MLS and property marketing
-- **Premium UI**: Sophisticated interface matching luxury real estate standards
-
-## 🏗️ **Architecture**
-
-### Tech Stack
-- **Frontend**: React + TypeScript + Mantine UI + Framer Motion
-- **Backend**: Python + FastAPI + PostgreSQL + Redis + Celery
-- **AI**: Google Gemini Vision Pro integration
-- **Deployment**: Docker + Docker Compose
-
-### Core Design Principles
-1. **Luxury First**: Every pixel reinforces premium positioning
-2. **Simplicity Over Complexity**: Master prompt engineering vs complex AI systems
-3. **Professional Focus**: Built for real estate professionals, not consumers
-4. **Quality Over Speed**: 30 seconds for perfect results vs 5 seconds for mediocre
-
-## 🚀 **Quick Start**
-
-### Prerequisites
-- Docker and Docker Compose installed
-- Google AI API key (for Gemini Vision Pro)
-
-### 1. Clone & Setup
-```bash
-git clone <repository>
-cd real_ai
-cp .env.example .env
-```
-
-### 2. Configure Environment
-Edit `.env` file with your API keys:
-```bash
-GOOGLE_AI_API_KEY=your_google_ai_api_key_here
-SECRET_KEY=your_secure_secret_key_here
-```
-
-### 3. Launch with Docker
-```bash
-# Start all services
-docker-compose up -d
-
-# Check service health
-docker-compose ps
-```
-
-### 4. Access the Application
-- **Frontend**: http://localhost:3000
-- **Backend API**: http://localhost:8000
-- **API Documentation**: http://localhost:8000/docs
-
-## 🔧 **Development Setup**
-
-### Backend Development
-```bash
-cd backend
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-pip install -r requirements.txt
-
-# Run database migrations
-alembic upgrade head
-
-# Start development server
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-```
-
-### Frontend Development
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-### Background Workers
-```bash
-cd backend
-celery -A app.celery worker --loglevel=info
-```
-
-## 📋 **API Endpoints**
-
-### Core Staging API
-- `POST /api/stage` - Upload and stage room photo
-- `GET /api/stage/{staging_id}` - Get staging status/results
-- `GET /api/styles` - Get available luxury styles
-- `GET /api/health` - System health check
-
-### Image Serving
-- `GET /api/images/{filename}` - Serve uploaded/staged images
-
-## 🎨 **Luxury Staging Styles**
-
-### 1. Modern Luxury
-- Clean lines and premium materials
-- Sophisticated neutrals with minimal accents
-- Perfect for contemporary high-end properties
-
-### 2. Classic Elegance
-- Timeless pieces and rich textures
-- Traditional luxury with warm accent colors
-- Ideal for established luxury homes
-
-### 3. Contemporary Chic
-- Current design trends with designer pieces
-- Editorial styling with curated accessories
-- Great for design-forward properties
-
-## 🔍 **Quality Standards**
-
-### AI Processing
-- **Architectural Preservation**: 100% integrity of structural elements
-- **Processing Time**: Under 30 seconds per staging
-- **Quality Score**: AI-calculated rating based on multiple factors
-- **Resolution**: 4K minimum for professional marketing
-
-### User Experience
-- **Premium UI**: Luxury design system with sophisticated interactions
-- **Professional Workflow**: Optimized for real estate agent efficiency
-- **Error Handling**: Comprehensive validation and user feedback
-- **Mobile Responsive**: Works beautifully on all devices
-
-## 🐳 **Deployment Options**
-
-### Development (Local)
-```bash
-docker-compose up -d
-```
-
-### Production (VPS)
-```bash
-# Clone to server
-git clone <repository> stagecraft-ai
-cd stagecraft-ai
-
-# Configure production environment
-cp .env.example .env
-# Edit .env with production settings
-
-# Deploy with production compose
-docker-compose -f docker-compose.prod.yml up -d
-
-# Setup SSL with Let's Encrypt
-sudo certbot --nginx -d yourdomain.com
-```
-
-### Cloud Platforms
-- **Railway**: One-click deploy from GitHub
-- **DigitalOcean App Platform**: Docker-based deployment
-- **AWS/GCP**: Full container orchestration
-
-## 📊 **System Requirements**
-
-### Minimum (Development)
-- 4GB RAM
-- 2 CPU cores
-- 10GB storage
-- Docker support
-
-### Recommended (Production)
-- 8GB RAM
-- 4 CPU cores
-- 50GB storage
-- SSD storage
-- CDN for global image delivery
-
-## 🔒 **Security Features**
-
-- **File Upload Validation**: Comprehensive image format and size checks
-- **Rate Limiting**: Prevents abuse with per-IP limits
-- **CORS Configuration**: Restricted to allowed origins
-- **API Key Authentication**: Secure access control
-- **Error Handling**: No sensitive information leakage
-- **HTTPS Enforcement**: SSL/TLS encryption
-
-## 📈 **Monitoring & Health**
-
-### Health Checks
-- Database connectivity
-- Redis cache status  
-- Celery workers
-- AI service availability
-- Disk space monitoring
-
-### Metrics
-- Processing success rate
-- Average response times
-- Queue lengths
-- User satisfaction scores
-- Architectural integrity validation
-
-## 🛠️ **Troubleshooting**
-
-### Common Issues
-
-**Services won't start:**
-```bash
-docker-compose down
-docker-compose up -d --build
-```
-
-**Database migration errors:**
-```bash
-docker-compose exec backend alembic upgrade head
-```
-
-**AI processing fails:**
-- Verify Google AI API key is correct
-- Check API quota and billing
-- Ensure image meets quality requirements
-
-**File upload issues:**
-- Check upload directory permissions
-- Verify file size limits
-- Ensure supported image formats
-
-### Debug Mode
-```bash
-# Enable debug logging
-export DEBUG=true
-docker-compose up -d
-```
-
-## 📝 **Contributing**
-
-1. Fork the repository
-2. Create feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit changes (`git commit -m 'Add amazing feature'`)
-4. Push to branch (`git push origin feature/amazing-feature`)
-5. Open Pull Request
-
-### Development Standards
-- **Code Quality**: Follow TypeScript/Python best practices
-- **Testing**: Write tests for new features
-- **Documentation**: Update README for significant changes
-- **UI/UX**: Maintain luxury design standards
-- **Performance**: Ensure fast response times
-
-## 📄 **License**
-
-This project is proprietary software designed for luxury real estate professionals.
-
-## 🆘 **Support**
-
-For technical support or feature requests:
-- Create GitHub issue for bugs
-- Contact team for enterprise features
-- Check documentation for common solutions
+[Live Demo](https://stagecraft-ai.vercel.app) | [Backend API](https://stagecraft-ai-production.up.railway.app/docs)
 
 ---
 
-**StageCraft AI** - Transforming luxury real estate with sophisticated AI staging.
+## Overview
+
+StageCraft AI addresses a real problem in real estate: professional home staging costs $2,000-$5,000+ per property and takes days to coordinate. This application generates photorealistic staged rooms instantly using generative AI, enabling real estate professionals to market properties faster and more cost-effectively.
+
+### Key Features
+
+- **AI-Powered Staging** - Uses Google Gemini's image generation to add realistic furniture while preserving architectural details
+- **Batch Processing** - Stage up to 10 rooms simultaneously with parallel Celery task processing
+- **Real-Time Progress** - Polling-based status updates show processing progress and estimated completion time
+- **Rate Limiting** - Redis-based rate limiting (10/user/day, 30 global/day) for API cost control
+- **OAuth Authentication** - Google OAuth integration for user management
+- **Distributed Architecture** - Separate API and worker services with shared Redis storage for horizontal scaling
+
+---
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                              FRONTEND                                    │
+│                         (Vercel - React/Vite)                           │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐    │
+│  │   Upload    │  │  Processing │  │   Results   │  │    Auth     │    │
+│  │  Dropzone   │  │   States    │  │   Display   │  │   Modal     │    │
+│  └─────────────┘  └─────────────┘  └─────────────┘  └─────────────┘    │
+└────────────────────────────────┬────────────────────────────────────────┘
+                                 │ REST API
+                                 ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                          BACKEND API                                     │
+│                      (Railway - FastAPI)                                 │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐    │
+│  │   Staging   │  │    Auth     │  │   Images    │  │   Health    │    │
+│  │   Routes    │  │   Routes    │  │   Routes    │  │   Routes    │    │
+│  └──────┬──────┘  └─────────────┘  └──────┬──────┘  └─────────────┘    │
+│         │                                  │                             │
+│         ▼                                  ▼                             │
+│  ┌─────────────┐                   ┌─────────────┐                      │
+│  │    Rate     │                   │   Image     │                      │
+│  │   Limiter   │                   │   Storage   │◄─────────────────┐   │
+│  └──────┬──────┘                   └──────┬──────┘                  │   │
+└─────────┼──────────────────────────────────┼────────────────────────┼───┘
+          │                                  │                        │
+          ▼                                  ▼                        │
+┌─────────────────┐              ┌─────────────────┐                  │
+│   PostgreSQL    │              │      Redis      │◄─────────┐       │
+│    (Railway)    │              │    (Railway)    │          │       │
+└─────────────────┘              └────────┬────────┘          │       │
+                                          │ Task Queue        │       │
+                                          ▼                   │       │
+                               ┌─────────────────────────────────────┐
+                               │          CELERY WORKER              │
+                               │         (Railway - Python)          │
+                               │  ┌─────────────┐  ┌─────────────┐  │
+                               │  │     AI      │  │   Image     │  │
+                               │  │   Service   │  │   Storage   │──┘
+                               │  │  (Gemini)   │  │   (Redis)   │
+                               │  └─────────────┘  └─────────────┘
+                               └─────────────────────────────────────┘
+```
+
+---
+
+## Tech Stack
+
+### Frontend
+| Technology | Purpose |
+|------------|---------|
+| **React 18** | UI framework with hooks |
+| **TypeScript** | Type safety |
+| **Vite** | Build tool & dev server |
+| **Mantine UI** | Component library |
+| **TanStack Query** | Server state management & polling |
+| **Framer Motion** | Animations |
+| **Axios** | HTTP client |
+
+### Backend
+| Technology | Purpose |
+|------------|---------|
+| **FastAPI** | Async Python web framework |
+| **Celery** | Distributed task queue |
+| **SQLAlchemy** | ORM |
+| **Alembic** | Database migrations |
+| **Pydantic** | Request/response validation |
+| **Pillow** | Image processing |
+
+### Infrastructure
+| Technology | Purpose |
+|------------|---------|
+| **Google Gemini** | AI image generation |
+| **PostgreSQL** | Primary database |
+| **Redis** | Task queue broker + distributed image storage |
+| **Docker** | Containerization |
+| **Railway** | Backend hosting (API + Worker + DB + Redis) |
+| **Vercel** | Frontend hosting |
+
+---
+
+## Technical Highlights
+
+### 1. Distributed Image Storage with Redis
+
+A key challenge: the backend API and Celery workers run as separate containers that can't share a filesystem. I solved this by implementing Redis-based image storage, allowing both services to access uploaded and processed images:
+
+```python
+class ImageStorage:
+    IMAGE_TTL = 60 * 60 * 24  # 24 hours
+
+    def store_image(self, staging_id: str, image_bytes: bytes, image_type: str):
+        key = f"image:{image_type}:{staging_id}"
+        encoded = base64.b64encode(image_bytes).decode('utf-8')
+        self.redis.setex(key, self.IMAGE_TTL, encoded)
+
+    def get_image(self, staging_id: str, image_type: str) -> Optional[bytes]:
+        key = f"image:{image_type}:{staging_id}"
+        encoded = self.redis.get(key)
+        return base64.b64decode(encoded) if encoded else None
+```
+
+### 2. Async Task Processing with Progress Updates
+
+Long-running AI tasks are offloaded to Celery workers, with progress updates stored for frontend polling:
+
+```python
+@celery_app.task(bind=True)
+def process_staging(self, staging_id: str):
+    current_task.update_state(
+        state='PROGRESS',
+        meta={'progress': 50, 'stage': 'Generating staged room...'}
+    )
+
+    # Process with Gemini AI
+    success, result, quality_score = asyncio.run(
+        ai_service.stage_room(staging_id)
+    )
+```
+
+### 3. IP-Based Rate Limiting
+
+Redis-backed rate limiting protects the API while ensuring fair usage for the portfolio demo:
+
+```python
+class RateLimiter:
+    USER_DAILY_LIMIT = 10
+    GLOBAL_DAILY_LIMIT = 30
+
+    def check_user_limit(self, client_ip: str) -> tuple[bool, int]:
+        key = f"ratelimit:user:{client_ip}:{date.today()}"
+        current = int(self.redis.get(key) or 0)
+        return current < self.USER_DAILY_LIMIT, self.USER_DAILY_LIMIT - current
+```
+
+### 4. Optimistic UI with Smart Polling
+
+TanStack Query handles server state with automatic polling that stops when processing completes:
+
+```typescript
+const stagingStatusQuery = useQuery({
+  queryKey: ['staging-status', stagingId],
+  queryFn: () => stagingApi.getStagingStatus(stagingId),
+  enabled: !!stagingId,
+  refetchInterval: (query) => {
+    const status = query.state.data?.status;
+    // Stop polling when done
+    if (status === 'completed' || status === 'failed') return false;
+    return 2000; // Poll every 2 seconds while processing
+  },
+});
+```
+
+---
+
+## Getting Started
+
+### Prerequisites
+- Node.js 18+
+- Python 3.11+
+- Docker & Docker Compose
+- Google AI API key ([Get one here](https://makersuite.google.com/app/apikey))
+
+### Local Development
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/cole-nielson/stagecraft-ai.git
+   cd stagecraft-ai
+   ```
+
+2. **Set up environment variables**
+   ```bash
+   cp .env.example .env
+   # Add your GOOGLE_AI_API_KEY to .env
+   ```
+
+3. **Start with Docker Compose**
+   ```bash
+   docker-compose up --build
+   ```
+
+4. **Access the application**
+   - Frontend: http://localhost:3000
+   - Backend API: http://localhost:8000
+   - API Docs: http://localhost:8000/docs
+
+---
+
+## API Reference
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/stage` | Upload image and start AI staging |
+| `GET` | `/api/stage/{id}` | Get staging status and results |
+| `POST` | `/api/stage-batch` | Batch upload (up to 10 images) |
+| `GET` | `/api/batch/{id}` | Get batch processing status |
+| `GET` | `/api/images/{filename}` | Serve processed images |
+| `GET` | `/api/health` | Health check with service status |
+
+---
+
+## Project Structure
+
+```
+stagecraft-ai/
+├── frontend/                 # React application
+│   ├── src/
+│   │   ├── components/      # Reusable UI components
+│   │   ├── hooks/           # Custom React hooks (useStaging)
+│   │   ├── pages/           # Page components
+│   │   ├── services/        # API client
+│   │   ├── styles/          # Mantine theme & CSS
+│   │   └── types/           # TypeScript interfaces
+│   └── package.json
+│
+├── backend/                  # FastAPI application
+│   ├── app/
+│   │   ├── core/            # Config, database, auth utilities
+│   │   ├── models/          # SQLAlchemy models
+│   │   ├── routes/          # API route handlers
+│   │   ├── services/        # Business logic
+│   │   │   ├── ai_service.py       # Gemini AI integration
+│   │   │   ├── celery_app.py       # Task queue config
+│   │   │   ├── image_storage.py    # Redis image storage
+│   │   │   ├── rate_limiter.py     # Rate limiting
+│   │   │   └── tasks.py            # Celery tasks
+│   │   └── middleware/      # Error handlers
+│   ├── migrations/          # Alembic database migrations
+│   └── requirements.txt
+│
+├── docker-compose.yml       # Local multi-service setup
+├── railway.json             # Railway deployment config
+└── vercel.json              # Vercel deployment config
+```
+
+---
+
+## Deployment
+
+### Backend (Railway)
+Auto-deploys from `main` branch. Four services:
+- **stagecraft-ai** - FastAPI application (port 8000)
+- **worker** - Celery worker processing `staging` queue
+- **PostgreSQL** - Managed database
+- **Redis** - Task broker + image storage
+
+### Frontend (Vercel)
+Auto-deploys from `main` branch:
+- Build: `npm run build`
+- Output: `dist`
+- Env: `VITE_API_URL` pointing to Railway backend
+
+---
+
+## Future Improvements
+
+- [ ] WebSocket for real-time progress (replace polling)
+- [ ] Multiple staging styles (Modern, Traditional, Minimalist)
+- [ ] Before/after comparison slider component
+- [ ] Room type auto-detection
+- [ ] Image resolution upscaling
+- [ ] Stripe integration for premium tier
+
+---
+
+## License
+
+MIT License
+
+---
+
+## Author
+
+**Cole Nielson**
+- [GitHub](https://github.com/cole-nielson)
+- [LinkedIn](https://linkedin.com/in/cole-nielson)
