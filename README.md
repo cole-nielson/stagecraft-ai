@@ -17,7 +17,7 @@ StageCraft AI addresses a real problem in real estate: professional home staging
 - **AI-Powered Staging** - Uses Google Gemini's image generation to add realistic furniture while preserving architectural details
 - **Batch Processing** - Stage up to 10 rooms simultaneously with parallel Celery task processing
 - **Real-Time Progress** - Polling-based status updates show processing progress and estimated completion time
-- **Rate Limiting** - Redis-based rate limiting (10/user/day, 30 global/day) for API cost control
+- **Rate Limiting** - Redis-based rate limiting (50/user/day, 300 global/day) for API cost control
 - **OAuth Authentication** - Google OAuth integration for user management
 - **Distributed Architecture** - Separate API and worker services with shared Redis storage for horizontal scaling
 
@@ -151,8 +151,8 @@ Redis-backed rate limiting protects the API while ensuring fair usage for the po
 
 ```python
 class RateLimiter:
-    USER_DAILY_LIMIT = 10
-    GLOBAL_DAILY_LIMIT = 30
+    USER_DAILY_LIMIT = 50
+    GLOBAL_DAILY_LIMIT = 300
 
     def check_user_limit(self, client_ip: str) -> tuple[bool, int]:
         key = f"ratelimit:user:{client_ip}:{date.today()}"

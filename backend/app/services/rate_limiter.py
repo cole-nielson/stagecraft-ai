@@ -3,8 +3,8 @@ from datetime import datetime, timedelta
 from ..core.config import settings
 
 # Rate limit settings
-USER_DAILY_LIMIT = 10  # 10 generations per user per day
-GLOBAL_DAILY_LIMIT = 30  # 30 total generations per day
+USER_DAILY_LIMIT = 50  # 50 generations per user per day
+GLOBAL_DAILY_LIMIT = 300  # 300 total generations per day
 
 
 class RateLimiter:

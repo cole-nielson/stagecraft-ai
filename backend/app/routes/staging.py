@@ -31,7 +31,7 @@ def check_rate_limits(request: Request, image_count: int = 1):
     if not global_allowed:
         raise HTTPException(
             status_code=429,
-            detail="Daily limit reached. This free demo allows 30 generations per day. Please try again tomorrow!"
+            detail="Daily limit reached. This free demo allows 300 generations per day. Please try again tomorrow!"
         )
 
     # Check user limit
@@ -39,7 +39,7 @@ def check_rate_limits(request: Request, image_count: int = 1):
     if not user_allowed:
         raise HTTPException(
             status_code=429,
-            detail="You've reached your daily limit of 10 free generations. Please try again tomorrow!"
+            detail="You've reached your daily limit of 50 free generations. Please try again tomorrow!"
         )
 
     # Check if batch would exceed limits
