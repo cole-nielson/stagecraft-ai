@@ -8,6 +8,7 @@ import os
 import numpy as np
 from typing import Optional, Tuple, Dict, Any
 from ..core.config import settings
+from .image_storage import image_storage
 
 
 class AIService:
@@ -36,43 +37,49 @@ CRITICAL: Preserve ALL architectural elements exactly as shown:
 
 Add appropriate furniture that appeals to potential buyers while keeping the original room structure 100% identical."""
     
-    async def stage_room(self, image_path: str) -> Tuple[bool, str, Optional[float]]:
+    async def stage_room(self, staging_id: str) -> Tuple[bool, str, Optional[float]]:
         """
-        Stage a room using AI. Returns (success, result_path_or_error, quality_score).
+        Stage a room using AI. Loads image from Redis, processes, saves result to Redis.
+        Returns (success, staged_filename_or_error, quality_score).
         """
         start_time = time.time()
-        
+
         try:
-            # Load and validate image
-            image = Image.open(image_path)
-            
+            # Load image from Redis
+            image_bytes = image_storage.get_image(staging_id, "original")
+            if not image_bytes:
+                return False, "Original image not found in storage", None
+
+            # Load as PIL Image
+            image = Image.open(io.BytesIO(image_bytes))
+
             # Enhanced image validation and preprocessing
             validation_result = self._validate_and_analyze_image(image)
             if not validation_result['is_valid']:
                 return False, validation_result['reason'], None
-            
+
             # Generate simple staging prompt
             prompt = self.get_staging_prompt()
-            
+
             # Preprocess image for better AI results
             enhanced_image = self._preprocess_image(image)
-            
+
             # Stage with Google Gemini Vision Pro
             if self.gemini_model:
                 success, result = await self._stage_with_gemini(enhanced_image, prompt)
                 if success and result:
-                    # Save result and return path
-                    result_path = self._save_staged_image(result, image_path)
+                    # Save result to Redis and return filename
+                    staged_filename = self._save_staged_image_to_redis(result, staging_id)
                     processing_time = int((time.time() - start_time) * 1000)
-                    
+
                     # Calculate quality score based on multiple factors
                     quality_score = 0.85  # Simple static quality score
-                    
-                    return True, result_path, quality_score
-                
+
+                    return True, staged_filename, quality_score
+
             # Fallback or error
             return False, "AI staging service temporarily unavailable", None
-            
+
         except Exception as e:
             return False, f"Error during staging: {str(e)}", None
     
@@ -219,35 +226,44 @@ Add appropriate furniture that appeals to potential buyers while keeping the ori
         return image.copy()
     
     
-    def _save_staged_image(self, staged_image: Image.Image, original_path: str) -> str:
-        """Save staged image and return path."""
-        import os
+    def _save_staged_image_to_redis(self, staged_image: Image.Image, staging_id: str) -> str:
+        """Save staged image to Redis and return filename."""
         import uuid
-        
+
         # Generate unique filename
-        file_id = str(uuid.uuid4())
-        staged_filename = f"staged_{file_id}.jpg"
-        staged_path = os.path.join(settings.upload_dir, staged_filename)
-        
-        # Save staged image
-        staged_image.save(staged_path, "JPEG", quality=95)
-        
-        return staged_path
-    
-    def check_architectural_integrity(self, original_path: str, staged_path: str) -> bool:
-        """Simple architectural integrity check."""
+        staged_filename = f"staged_{staging_id}.jpg"
+
+        # Convert PIL image to bytes
+        buffer = io.BytesIO()
+        staged_image.save(buffer, format="JPEG", quality=95)
+        image_bytes = buffer.getvalue()
+
+        # Store in Redis
+        if not image_storage.store_image(staging_id, image_bytes, "staged"):
+            raise Exception("Failed to store staged image in Redis")
+
+        return staged_filename
+
+    def check_architectural_integrity(self, staging_id: str, staged_filename: str) -> bool:
+        """Simple architectural integrity check using Redis storage."""
         try:
-            # Load both images
-            original = Image.open(original_path)
-            staged = Image.open(staged_path)
-            
+            # Load both images from Redis
+            original_bytes = image_storage.get_image(staging_id, "original")
+            staged_bytes = image_storage.get_image(staging_id, "staged")
+
+            if not original_bytes or not staged_bytes:
+                return False
+
+            original = Image.open(io.BytesIO(original_bytes))
+            staged = Image.open(io.BytesIO(staged_bytes))
+
             # Basic checks - in production this would be more sophisticated
             # Check if images are same size (indicating structure preserved)
             if original.size != staged.size:
                 return False
-                
+
             # For now, assume integrity is maintained if we get this far
             return True
-            
+
         except Exception:
             return False

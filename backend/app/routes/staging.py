@@ -3,12 +3,12 @@ from sqlalchemy.orm import Session
 from typing import Optional, List
 import os
 import uuid
-import shutil
 from celery import group
 from ..core.database import get_db
 from ..models.staging import Staging
 from ..services.tasks import process_staging
 from ..services.rate_limiter import rate_limiter
+from ..services.image_storage import image_storage
 from ..core.config import settings
 
 router = APIRouter()
@@ -79,23 +79,23 @@ async def stage_room(
         raise HTTPException(status_code=400, detail="File too large")
     
     
-    # Save uploaded image
+    # Generate staging ID and store image in Redis
     staging_id = uuid.uuid4()
     file_extension = os.path.splitext(image.filename)[1] or '.jpg'
     original_filename = f"original_{str(staging_id)}{file_extension}"
-    original_path = os.path.join(settings.upload_dir, original_filename)
-    
-    # Ensure upload directory exists
-    os.makedirs(settings.upload_dir, exist_ok=True)
-    
-    # Save file
-    with open(original_path, "wb") as buffer:
-        shutil.copyfileobj(image.file, buffer)
-    
-    # Create staging record
+
+    # Read image bytes and store in Redis (accessible by both backend and worker)
+    image_bytes = await image.read()
+    if not image_storage.store_image(str(staging_id), image_bytes, "original"):
+        raise HTTPException(status_code=500, detail="Failed to store image")
+
+    # Store metadata for content type
+    image_storage.store_image_metadata(str(staging_id), original_filename, image.content_type)
+
+    # Create staging record (path is now just a reference, not actual file path)
     staging = Staging(
         id=staging_id,
-        original_image_path=original_path,
+        original_image_path=original_filename,  # Just store the filename reference
         style="default",
         room_type=room_type,
         quality_mode=quality_mode,
@@ -196,35 +196,38 @@ async def stage_batch(
     for i, image in enumerate(images):
         # Generate staging ID
         staging_id = uuid.uuid4()
-        
+
         # Determine room type
         room_type = None
         if room_types and i < len(room_types):
             room_type = room_types[i]
-        
-        # Save uploaded image
+
+        # Store image in Redis
         file_extension = os.path.splitext(image.filename)[1] or '.jpg'
         original_filename = f"original_{str(staging_id)}{file_extension}"
-        original_path = os.path.join(settings.upload_dir, original_filename)
-        
-        # Save file
-        with open(original_path, "wb") as buffer:
-            shutil.copyfileobj(image.file, buffer)
-        
+
+        # Read and store image bytes in Redis
+        image_bytes = await image.read()
+        if not image_storage.store_image(str(staging_id), image_bytes, "original"):
+            raise HTTPException(status_code=500, detail=f"Failed to store image {image.filename}")
+
+        # Store metadata
+        image_storage.store_image_metadata(str(staging_id), original_filename, image.content_type)
+
         # Create staging record
         staging = Staging(
             id=staging_id,
-            original_image_path=original_path,
+            original_image_path=original_filename,  # Just the filename reference
             style="default",
             room_type=room_type,
             quality_mode=quality_mode,
             status="processing",
             batch_id=batch_id
         )
-        
+
         db.add(staging)
         staging_records.append(staging)
-        
+
         # Create task signature for batch processing
         task_signatures.append(process_staging.s(str(staging_id)))
     

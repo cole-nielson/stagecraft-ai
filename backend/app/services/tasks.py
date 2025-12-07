@@ -40,31 +40,31 @@ def process_staging(self, staging_id: str):
             meta={'progress': 50, 'stage': 'Selecting luxury furnishings...'}
         )
         
-        # Process staging with AI
+        # Process staging with AI (pass staging_id, not file path)
         start_time = time.time()
-        
+
         # Import asyncio to run async function
         import asyncio
         success, result, quality_score = asyncio.run(ai_service.stage_room(
-            staging.original_image_path
+            staging_id  # Pass staging_id - ai_service loads from Redis
         ))
-        
+
         processing_time = int((time.time() - start_time) * 1000)
-        
+
         # Update progress
         current_task.update_state(
             state='PROGRESS',
             meta={'progress': 85, 'stage': 'Finalizing professional staging...'}
         )
-        
+
         if success:
             # Update staging record with results
             staging.status = "completed"
-            staging.staged_image_path = result
+            staging.staged_image_path = result  # This is now the staged filename
             staging.processing_time_ms = processing_time
             staging.quality_score = quality_score
             staging.architectural_integrity = ai_service.check_architectural_integrity(
-                staging.original_image_path, result
+                staging_id, result  # Pass staging_id and filename
             )
             staging.completed_at = datetime.now(timezone.utc)
             
