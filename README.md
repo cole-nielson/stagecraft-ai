@@ -301,4 +301,4 @@ MIT License
 
 **Cole Nielson**
 - [GitHub](https://github.com/cole-nielson)
-- [LinkedIn](https://linkedin.com/in/cole-nielson)
+- [LinkedIn](https://www.linkedin.com/in/cole-nielson-b05724196/)
