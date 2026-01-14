@@ -9,8 +9,8 @@ from .core.config import settings
 from .core.exceptions import StageCraftException
 from .core.database import engine, Base
 # Import models to register them with Base
-from .models import Staging, User, Conversation
-from .routes import staging_router, health_router, images_router, auth_router, conversations_router
+from .models import Staging, User, Conversation, Project
+from .routes import staging_router, health_router, images_router, auth_router, conversations_router, projects_router
 from .middleware import (
     stagecraft_exception_handler,
     http_exception_handler,
@@ -73,6 +73,7 @@ app.include_router(health_router, prefix="/api", tags=["health"])
 app.include_router(images_router, prefix="/api", tags=["images"])
 app.include_router(auth_router, tags=["auth"])
 app.include_router(conversations_router, tags=["conversations"])
+app.include_router(projects_router, prefix="/api", tags=["projects"])
 
 @app.get("/")
 async def root():

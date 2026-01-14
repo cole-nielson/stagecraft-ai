@@ -1,7 +1,7 @@
 import axios from 'axios';
-import { Style, Staging, HealthStatus, StagingRequest, BatchStaging, BatchStagingRequest } from '../types';
+import { Style, Staging, HealthStatus, StagingRequest, Project, ProjectWithStagings, User } from '../types';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 // Create axios instance with default config
 const api = axios.create({
@@ -12,10 +12,28 @@ const api = axios.create({
   },
 });
 
-// API response interceptor for error handling
+// Request interceptor to add auth token
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('authToken');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+// Response interceptor for error handling
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    // Handle 401 errors - clear token if invalid
+    if (error.response?.status === 401) {
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('user');
+      // Optionally trigger a re-auth (can emit an event here)
+    }
     console.error('API Error:', error);
     return Promise.reject(error);
   }
@@ -44,40 +62,6 @@ export const stagingApi = {
   // Get staging status and results
   getStagingStatus: async (stagingId: string): Promise<Staging> => {
     const response = await api.get(`/api/stage/${stagingId}`);
-    return response.data;
-  },
-
-  // Upload and stage multiple rooms
-  stageBatch: async (request: BatchStagingRequest): Promise<BatchStaging> => {
-    const formData = new FormData();
-    
-    // Add all images
-    request.images.forEach((image, index) => {
-      formData.append('images', image);
-    });
-    
-    // Add room types if provided
-    if (request.room_types) {
-      request.room_types.forEach((roomType, index) => {
-        formData.append('room_types', roomType);
-      });
-    }
-    
-    if (request.quality_mode) {
-      formData.append('quality_mode', request.quality_mode);
-    }
-
-    const response = await api.post('/api/stage-batch', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
-    return response.data;
-  },
-
-  // Get batch status and results
-  getBatchStatus: async (batchId: string): Promise<BatchStaging> => {
-    const response = await api.get(`/api/batch/${batchId}`);
     return response.data;
   },
 
@@ -115,6 +99,82 @@ export const stagingApi = {
 export const getFilenameFromPath = (path: string): string => {
   if (!path) return '';
   return path.split('/').pop() || '';
+};
+
+// Auth API
+export const authApi = {
+  // Register a new user
+  register: async (email: string, password: string, name: string): Promise<{ token: string; user: User }> => {
+    const response = await api.post('/auth/register', { email, password, name });
+    return response.data;
+  },
+
+  // Login with email and password
+  login: async (email: string, password: string): Promise<{ token: string; user: User }> => {
+    const response = await api.post('/auth/login', { email, password });
+    return response.data;
+  },
+
+  // Get current user info
+  me: async (): Promise<User> => {
+    const response = await api.get('/auth/me');
+    return response.data;
+  },
+
+  // Logout (client-side)
+  logout: () => {
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('user');
+  },
+
+  // Get Google OAuth URL
+  getGoogleAuthUrl: (): string => {
+    return `${API_BASE_URL}/auth/google`;
+  },
+};
+
+// Projects API
+export const projectsApi = {
+  // List all projects for current user
+  getProjects: async (): Promise<{ projects: Project[] }> => {
+    const response = await api.get('/api/projects');
+    return response.data;
+  },
+
+  // Create a new project
+  createProject: async (name: string, description?: string): Promise<Project> => {
+    const response = await api.post('/api/projects', { name, description });
+    return response.data;
+  },
+
+  // Get a specific project with its stagings
+  getProject: async (projectId: string): Promise<ProjectWithStagings> => {
+    const response = await api.get(`/api/projects/${projectId}`);
+    return response.data;
+  },
+
+  // Update a project
+  updateProject: async (projectId: string, data: { name?: string; description?: string }): Promise<Project> => {
+    const response = await api.put(`/api/projects/${projectId}`, data);
+    return response.data;
+  },
+
+  // Delete a project
+  deleteProject: async (projectId: string): Promise<void> => {
+    await api.delete(`/api/projects/${projectId}`);
+  },
+
+  // Get staging history
+  getStagingHistory: async (limit?: number): Promise<{ stagings: Staging[] }> => {
+    const response = await api.get('/api/stagings/history', { params: { limit } });
+    return response.data;
+  },
+
+  // Get unsorted stagings (not in any project)
+  getUnsortedStagings: async (limit?: number): Promise<{ stagings: Staging[] }> => {
+    const response = await api.get('/api/stagings/unsorted', { params: { limit } });
+    return response.data;
+  },
 };
 
 export default api;

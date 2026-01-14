@@ -30,11 +30,8 @@ export interface HealthStatus {
   timestamp: number;
   services: {
     database: string;
-    redis: string;
-    celery: string;
     ai_service: string;
   };
-  worker_count?: number;
 }
 
 export interface ApiResponse<T> {
@@ -54,21 +51,24 @@ export interface UploadProgress {
   stage: string;
 }
 
-export interface BatchStagingRequest {
-  images: File[];
-  room_types?: string[];
-  quality_mode?: string;
+export interface User {
+  id: string;
+  email: string;
+  name?: string;
+  plan?: string;
+  usage_limit?: number;
+  current_usage?: number;
 }
 
-export interface BatchStaging {
-  batch_id: string;
-  status: 'processing' | 'completed' | 'failed' | 'partial';
-  total: number;
-  completed: number;
-  failed: number;
-  processing: number;
+export interface Project {
+  id: string;
+  name: string;
+  description?: string;
+  staging_count: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface ProjectWithStagings extends Project {
   stagings: Staging[];
-  total_images?: number;
-  group_task_id?: string;
-  estimated_time_seconds?: number;
 }

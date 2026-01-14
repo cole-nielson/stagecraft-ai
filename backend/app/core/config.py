@@ -6,12 +6,8 @@ class Settings(BaseSettings):
     # Database
     database_url: str
     
-    # Redis
-    redis_url: str
-    
     # AI Services
-    google_ai_api_key: str
-    xai_api_key: str = ""
+    google_ai_api_key: str = ""
     
     # Security
     secret_key: str
@@ -35,7 +31,7 @@ class Settings(BaseSettings):
     google_client_secret: str = ""
     jwt_secret_key: str = ""
     jwt_algorithm: str = "HS256"
-    access_token_expire_minutes: int = 30
+    access_token_expire_minutes: int = 10080  # 7 days
 
     # Watermark Settings (disabled)
     watermark_enabled: bool = False

@@ -2,12 +2,7 @@ import React from 'react';
 import { Group, Button, Text, Menu, Avatar, UnstyledButton, ActionIcon } from '@mantine/core';
 import { IconUser, IconLogout, IconMenu2 } from '@tabler/icons-react';
 import { motion } from 'framer-motion';
-
-interface User {
-  id: string;
-  name: string;
-  email: string;
-}
+import type { User } from '../types';
 
 interface SimpleHeaderProps {
   user: User | null;
@@ -22,6 +17,7 @@ const SimpleHeader: React.FC<SimpleHeaderProps> = ({
   onLogout,
   onToggleSidebar,
 }) => {
+  const displayName = user?.name?.trim() || user?.email || 'User';
   return (
     <header
       style={{
@@ -112,11 +108,11 @@ const SimpleHeader: React.FC<SimpleHeaderProps> = ({
                 >
                   <Group gap="xs">
                     <Avatar size="sm" color="warmGold" radius="sm">
-                      {user.name.charAt(0).toUpperCase()}
+                      {displayName.charAt(0).toUpperCase()}
                     </Avatar>
                     <div>
                       <Text size="sm" fw={500} c="charcoal">
-                        {user.name}
+                        {displayName}
                       </Text>
                       <Text size="xs" c="dimmed">
                         {user.email}

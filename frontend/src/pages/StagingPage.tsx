@@ -1,19 +1,13 @@
 import React, { useState } from 'react';
-import { Container, Stack, Text, Paper, Group, Alert, Image, Card, Switch, Button } from '@mantine/core';
+import { Container, Stack, Text, Paper, Alert, Image, Card } from '@mantine/core';
 import { FileWithPath } from '@mantine/dropzone';
-import { IconAlertCircle, IconUpload } from '@tabler/icons-react';
+import { IconAlertCircle } from '@tabler/icons-react';
 import { motion } from 'framer-motion';
 import PremiumUpload from '../components/PremiumUpload';
 import ProcessingStates from '../components/ProcessingStates';
 import ResultsDisplay from '../components/ResultsDisplay';
-import BatchResults from '../components/BatchResults';
 import { useStaging } from '../hooks/useStaging';
-
-interface User {
-  id: string;
-  name: string;
-  email: string;
-}
+import type { User } from '../types';
 
 interface StagingPageProps {
   onGenerationRequest: (imageFile: File) => boolean;
@@ -23,37 +17,24 @@ interface StagingPageProps {
 
 const StagingPage: React.FC<StagingPageProps> = ({ onGenerationRequest, user, currentProjectId }) => {
   const [uploadedFile, setUploadedFile] = useState<FileWithPath | null>(null);
-  const [uploadedFiles, setUploadedFiles] = useState<FileWithPath[]>([]);
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
   const [imageContainerHeight, setImageContainerHeight] = useState<number>(300);
-  const [batchMode, setBatchMode] = useState<boolean>(false);
   
   const { 
     startStaging, 
-    startBatchStaging,
     resetStaging,
     staging, 
-    batchStaging,
     isStaging, 
-    isBatchStaging,
     isCompleted, 
-    isBatchCompleted,
     isFailed,
-    isBatchFailed,
-    isBatchPartial,
     error 
   } = useStaging();
   
 
   const handleFileUpload = (files: FileWithPath[]) => {
-    if (batchMode) {
-      setUploadedFiles(files);
-      setUploadedFile(null);
-      setImagePreviewUrl(null);
-    } else if (files.length > 0) {
+    if (files.length > 0) {
       const file = files[0];
       setUploadedFile(file);
-      setUploadedFiles([]);
       
       // Create preview URL for the uploaded image
       const url = URL.createObjectURL(file);
@@ -62,7 +43,7 @@ const StagingPage: React.FC<StagingPageProps> = ({ onGenerationRequest, user, cu
       // Calculate optimal container height based on image aspect ratio
       const img = new window.Image();
       img.onload = () => {
-        const containerWidth = 350; // Approximate container width
+        const containerWidth = 350;
         const aspectRatio = img.height / img.width;
         const calculatedHeight = Math.max(300, Math.min(500, containerWidth * aspectRatio));
         setImageContainerHeight(calculatedHeight);
@@ -73,40 +54,21 @@ const StagingPage: React.FC<StagingPageProps> = ({ onGenerationRequest, user, cu
 
 
   const handleStartStaging = async () => {
-    if (batchMode) {
-      if (uploadedFiles.length === 0) return;
+    if (!uploadedFile) return;
 
-      // Check if user is authenticated before proceeding
-      const canProceed = onGenerationRequest(uploadedFiles[0]);
-      if (!canProceed) {
-        return; // User will be prompted to log in
-      }
+    // Check if user is authenticated before proceeding
+    const canProceed = onGenerationRequest(uploadedFile);
+    if (!canProceed) {
+      return; // User will be prompted to log in
+    }
 
-      try {
-        await startBatchStaging({
-          images: uploadedFiles,
-          quality_mode: 'premium',
-        });
-      } catch (error) {
-        console.error('Failed to start batch staging:', error);
-      }
-    } else {
-      if (!uploadedFile) return;
-
-      // Check if user is authenticated before proceeding
-      const canProceed = onGenerationRequest(uploadedFile);
-      if (!canProceed) {
-        return; // User will be prompted to log in
-      }
-
-      try {
-        await startStaging({
-          image: uploadedFile,
-          quality_mode: 'premium',
-        });
-      } catch (error) {
-        console.error('Failed to start staging:', error);
-      }
+    try {
+      await startStaging({
+        image: uploadedFile,
+        quality_mode: 'premium',
+      });
+    } catch (error) {
+      console.error('Failed to start staging:', error);
     }
   };
 
@@ -116,7 +78,6 @@ const StagingPage: React.FC<StagingPageProps> = ({ onGenerationRequest, user, cu
 
   const handleStageAnother = () => {
     setUploadedFile(null);
-    setUploadedFiles([]);
     if (imagePreviewUrl) {
       URL.revokeObjectURL(imagePreviewUrl);
       setImagePreviewUrl(null);
@@ -125,9 +86,7 @@ const StagingPage: React.FC<StagingPageProps> = ({ onGenerationRequest, user, cu
     resetStaging();
   };
 
-  const canStartStaging = batchMode ? 
-    (uploadedFiles.length > 0 && !isBatchStaging) : 
-    (uploadedFile && !isStaging);
+  const canStartStaging = uploadedFile && !isStaging;
 
   return (
     <Container size="xl" py="xl">
@@ -147,10 +106,7 @@ const StagingPage: React.FC<StagingPageProps> = ({ onGenerationRequest, user, cu
               mb="xs"
               style={{ fontFamily: 'var(--font-heading)' }}
             >
-              {user && currentProjectId !== 'current' 
-                ? `Project: ${currentProjectId?.includes('proj-') ? 'New Project' : 'Current Project'}`
-                : 'Room Staging'
-              }
+              AI Room Staging
             </Text>
             <Text size="sm" c="dimmed" ta="center">
               Upload a room photo and get professional staging in seconds
@@ -173,7 +129,7 @@ const StagingPage: React.FC<StagingPageProps> = ({ onGenerationRequest, user, cu
         )}
 
         {/* Results Display */}
-        {isCompleted && staging && !batchMode && (
+        {isCompleted && staging && (
           <ResultsDisplay
             staging={staging}
             onTryAgain={handleTryAgain}
@@ -181,58 +137,26 @@ const StagingPage: React.FC<StagingPageProps> = ({ onGenerationRequest, user, cu
           />
         )}
 
-        {/* Batch Results Display */}
-        {(isBatchCompleted || isBatchPartial) && batchStaging && (
-          <BatchResults
-            batchStaging={batchStaging}
-          />
-        )}
-
         {/* Processing States */}
-        {(isStaging || isBatchStaging) && (
+        {isStaging && (
           <ProcessingStates
-            isProcessing={isStaging || isBatchStaging}
-            estimatedTimeSeconds={
-              batchMode 
-                ? (batchStaging?.estimated_time_seconds || uploadedFiles.length * 25)
-                : (staging?.estimated_time_seconds || 25)
-            }
-            progress={75} // This would come from real-time updates in production
+            isProcessing={isStaging}
+            estimatedTimeSeconds={staging?.estimated_time_seconds || 30}
+            progress={75}
             originalImageUrl={imagePreviewUrl ?? undefined}
-            uploadedFileName={
-              batchMode 
-                ? `${uploadedFiles.length} images`
-                : uploadedFile?.name
-            }
+            uploadedFileName={uploadedFile?.name}
             imageContainerHeight={imageContainerHeight}
           />
         )}
 
         {/* Main Staging Interface */}
-        {!isCompleted && !isBatchCompleted && !isBatchPartial && !isStaging && !isBatchStaging && (
+        {!isCompleted && !isStaging && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.5, delay: 0.2 }}
           >
-            {/* Batch Mode Toggle */}
-            <div style={{ textAlign: 'center', marginBottom: 'var(--space-lg)' }}>
-              <Group justify="center" gap="md">
-                <Text size="sm" c="dimmed">Single Image</Text>
-                <Switch
-                  checked={batchMode}
-                  onChange={(event) => {
-                    setBatchMode(event.currentTarget.checked);
-                    handleStageAnother(); // Reset all state when switching modes
-                  }}
-                  color="var(--warm-gold)"
-                  size="md"
-                />
-                <Text size="sm" c="dimmed">Batch Mode (up to 10)</Text>
-              </Group>
-            </div>
-
-            {(!uploadedFile && !batchMode) || (batchMode && uploadedFiles.length === 0) ? (
+            {!uploadedFile ? (
               /* Upload Section - Show when no image uploaded */
               <Paper
                 shadow="sm"
@@ -254,98 +178,23 @@ const StagingPage: React.FC<StagingPageProps> = ({ onGenerationRequest, user, cu
                       mb="xs"
                       style={{ fontFamily: 'var(--font-heading)' }}
                     >
-                      {batchMode ? 'Upload Room Photos' : 'Upload Room Photo'}
+                      Upload Room Photo
                     </Text>
                     <Text size="sm" c="dimmed">
-                      {batchMode 
-                        ? 'Choose up to 10 high-resolution photos for batch staging' 
-                        : 'Choose a high-resolution photo of your empty room for professional staging'
-                      }
+                      Choose a high-resolution photo of your empty room for professional staging
                     </Text>
                   </div>
 
                   <PremiumUpload
                     onDrop={handleFileUpload}
-                    isLoading={isStaging || isBatchStaging}
-                    multiple={batchMode}
-                    maxFiles={batchMode ? 10 : 1}
+                    isLoading={isStaging}
+                    multiple={false}
+                    maxFiles={1}
                   />
                 </Stack>
               </Paper>
-            ) : batchMode ? (
-              /* Batch Upload Preview - Show uploaded files */
-              <Paper
-                shadow="sm"
-                radius="lg"
-                p="xl"
-                style={{
-                  background: 'var(--pure-white)',
-                  border: '1px solid var(--light-gray)',
-                  maxWidth: '800px',
-                  margin: '0 auto',
-                }}
-              >
-                <Stack gap="lg">
-                  <div>
-                    <Text
-                      size="lg"
-                      fw={600}
-                      c="charcoal"
-                      mb="xs"
-                      style={{ fontFamily: 'var(--font-heading)' }}
-                    >
-                      {uploadedFiles.length} Images Ready for Batch Staging
-                    </Text>
-                    <Text size="sm" c="dimmed">
-                      All images will be processed simultaneously using professional staging
-                    </Text>
-                  </div>
-
-                  <div
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))',
-                      gap: 'var(--space-md)',
-                    }}
-                  >
-                    {uploadedFiles.map((file, index) => (
-                      <Card key={index} withBorder padding="xs" radius="md">
-                        <div
-                          style={{
-                            width: '100%',
-                            height: '80px',
-                            borderRadius: '8px',
-                            overflow: 'hidden',
-                            marginBottom: '8px',
-                          }}
-                        >
-                          <Image
-                            src={URL.createObjectURL(file)}
-                            alt={`Upload ${index + 1}`}
-                            fit="cover"
-                            height={80}
-                          />
-                        </div>
-                        <Text size="xs" c="dimmed" ta="center" truncate>
-                          {file.name}
-                        </Text>
-                      </Card>
-                    ))}
-                  </div>
-
-                  <Group justify="center" mt="md">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setUploadedFiles([])}
-                    >
-                      Clear All
-                    </Button>
-                  </Group>
-                </Stack>
-              </Paper>
             ) : (
-              /* Single Image Preview - Show when single image uploaded */
+              /* Single Image Preview - Show when image uploaded */
               <div
                 style={{
                   display: 'grid',
@@ -488,16 +337,10 @@ const StagingPage: React.FC<StagingPageProps> = ({ onGenerationRequest, user, cu
                       fontWeight: 600,
                     }}
                   >
-                    {batchMode 
-                      ? `Generate Staging (${uploadedFiles.length} images)` 
-                      : 'Generate Staging'
-                    }
+                    Generate Staging
                   </button>
                   <Text size="sm" c="dimmed" mt="sm">
-                    {batchMode 
-                      ? `High-quality results in ~${uploadedFiles.length * 25} seconds`
-                      : 'High-quality results in ~25 seconds'
-                    }
+                    High-quality results in ~30 seconds
                   </Text>
                 </div>
               </motion.div>

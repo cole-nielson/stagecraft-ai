@@ -8,7 +8,7 @@ from sqlalchemy import pool
 from alembic import context
 
 # Import your models here so they are registered with SQLAlchemy
-from app.models import Staging, User, Conversation
+from app.models import Staging, User, Conversation, Project
 from app.core.database import Base
 
 # this is the Alembic Config object, which provides
@@ -16,7 +16,7 @@ from app.core.database import Base
 config = context.config
 
 # Set database URL from environment variable
-database_url = os.getenv('DATABASE_URL', 'postgresql://user:password@postgres:5432/stagecraft')
+database_url = os.getenv('DATABASE_URL', 'postgresql://user:password@localhost:5432/stagecraft')
 config.set_main_option('sqlalchemy.url', database_url)
 
 # Interpret the config file for Python logging.

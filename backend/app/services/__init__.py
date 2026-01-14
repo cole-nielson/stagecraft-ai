@@ -1,5 +1,3 @@
-from .ai_service import AIService
-from .celery_app import celery_app
-from .watermark import apply_stagecraft_watermark
+from .ai_service import AIService, ai_service
 
-__all__ = ["AIService", "celery_app", "apply_stagecraft_watermark"]
+__all__ = ["AIService", "ai_service"]

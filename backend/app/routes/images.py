@@ -1,13 +1,17 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import Response
+from sqlalchemy.orm import Session
 import os
 import re
-from ..services.image_storage import image_storage
+import base64
+
+from ..core.database import get_db
+from ..models.staging import Staging
 
 router = APIRouter()
 
 
-def extract_staging_id(filename: str) -> tuple[str, str]:
+def extract_staging_id(filename: str) -> tuple:
     """
     Extract staging_id and image type from filename.
     Formats: original_{staging_id}.jpg or staged_{staging_id}.jpg
@@ -22,8 +26,8 @@ def extract_staging_id(filename: str) -> tuple[str, str]:
 
 
 @router.get("/images/{filename}")
-async def serve_image(filename: str):
-    """Serve uploaded and staged images from Redis storage."""
+async def serve_image(filename: str, db: Session = Depends(get_db)):
+    """Serve uploaded and staged images from PostgreSQL storage."""
 
     # Security: Only allow image files and prevent directory traversal
     allowed_extensions = {'.jpg', '.jpeg', '.png', '.webp'}
@@ -40,10 +44,25 @@ async def serve_image(filename: str):
     if not staging_id or not image_type:
         raise HTTPException(status_code=400, detail="Invalid filename format")
 
-    # Get image from Redis
-    image_bytes = image_storage.get_image(staging_id, image_type)
-    if not image_bytes:
+    # Get staging record from database
+    staging = db.query(Staging).filter(Staging.id == staging_id).first()
+    if not staging:
         raise HTTPException(status_code=404, detail="Image not found")
+
+    # Get appropriate image data based on type
+    if image_type == "original":
+        image_data_b64 = staging.original_image_data
+    else:  # staged
+        image_data_b64 = staging.staged_image_data
+
+    if not image_data_b64:
+        raise HTTPException(status_code=404, detail="Image not found")
+
+    # Decode base64 to bytes
+    try:
+        image_bytes = base64.b64decode(image_data_b64)
+    except Exception:
+        raise HTTPException(status_code=500, detail="Failed to decode image")
 
     # Determine content type
     content_type = f"image/{file_ext[1:]}"

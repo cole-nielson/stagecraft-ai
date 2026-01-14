@@ -7,10 +7,10 @@ from ..core.database import Base
 
 class User(Base):
     __tablename__ = "users"
-    
+
     # Primary Key
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    
+
     # Basic info
     email = Column(String(255), unique=True, nullable=False)
     api_key = Column(String(255), unique=True, nullable=False)
@@ -18,6 +18,10 @@ class User(Base):
     company = Column(String(200), nullable=True)
     google_id = Column(String(100), unique=True, nullable=True)
     avatar_url = Column(String(500), nullable=True)
+
+    # Authentication
+    password_hash = Column(String(255), nullable=True)  # Nullable for OAuth-only users
+    auth_provider = Column(String(20), default="email")  # "email" or "google"
     
     # Subscription
     plan = Column(String(20), default="trial")
@@ -31,6 +35,7 @@ class User(Base):
     
     # Relationships
     conversations = relationship("Conversation", back_populates="user")
+    projects = relationship("Project", back_populates="user")
     
     def to_dict(self):
         return {

@@ -1,16 +1,34 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
+from pydantic import BaseModel, EmailStr
 import httpx
 from datetime import timedelta
 from urllib.parse import urlencode
 from ..core.database import get_db
 from ..core.config import settings
-from ..core.auth import create_access_token, get_current_user_required
+from ..core.auth import create_access_token, get_current_user_required, hash_password, verify_password
 from ..models.user import User
 import uuid
 
 router = APIRouter()
+
+
+# Pydantic schemas for auth
+class RegisterRequest(BaseModel):
+    email: EmailStr
+    password: str
+    name: str
+
+
+class LoginRequest(BaseModel):
+    email: EmailStr
+    password: str
+
+
+class AuthResponse(BaseModel):
+    token: str
+    user: dict
 
 @router.get("/auth/google")
 async def google_login():
@@ -65,11 +83,21 @@ async def google_callback(code: str, db: Session = Depends(get_db)):
                 user = User(
                     email=user_info["email"],
                     name=user_info.get("name", ""),
+                    google_id=user_info.get("id"),
+                    avatar_url=user_info.get("picture"),
+                    auth_provider="google",
                     api_key=str(uuid.uuid4())
                 )
                 db.add(user)
                 db.commit()
                 db.refresh(user)
+            else:
+                # Update Google info if user exists
+                user.google_id = user_info.get("id")
+                user.avatar_url = user_info.get("picture")
+                if not user.auth_provider:
+                    user.auth_provider = "google"
+                db.commit()
             
             # Create JWT token
             access_token = create_access_token(
@@ -102,3 +130,97 @@ async def get_current_user_info(current_user: User = Depends(get_current_user_re
 async def logout():
     """Logout endpoint (client-side token removal)."""
     return {"message": "Logged out successfully"}
+
+
+@router.post("/auth/register")
+async def register(request: RegisterRequest, db: Session = Depends(get_db)):
+    """Register a new user with email and password."""
+    # Check if email already exists
+    existing_user = db.query(User).filter(User.email == request.email).first()
+    if existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email already registered"
+        )
+
+    # Validate password length
+    if len(request.password) < 8:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password must be at least 8 characters"
+        )
+
+    # Create new user
+    user = User(
+        email=request.email,
+        name=request.name,
+        password_hash=hash_password(request.password),
+        auth_provider="email",
+        api_key=str(uuid.uuid4())
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+
+    # Create JWT token
+    access_token = create_access_token(
+        data={"sub": user.email},
+        expires_delta=timedelta(minutes=settings.access_token_expire_minutes)
+    )
+
+    return {
+        "token": access_token,
+        "user": {
+            "id": str(user.id),
+            "email": user.email,
+            "name": user.name,
+            "plan": user.plan,
+            "usage_limit": user.usage_limit,
+            "current_usage": user.current_usage
+        }
+    }
+
+
+@router.post("/auth/login")
+async def login(request: LoginRequest, db: Session = Depends(get_db)):
+    """Login with email and password."""
+    # Find user by email
+    user = db.query(User).filter(User.email == request.email).first()
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid email or password"
+        )
+
+    # Check if user has a password (might be OAuth-only user)
+    if not user.password_hash:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="This account uses Google sign-in. Please use Google to log in."
+        )
+
+    # Verify password
+    if not verify_password(request.password, user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid email or password"
+        )
+
+    # Create JWT token
+    access_token = create_access_token(
+        data={"sub": user.email},
+        expires_delta=timedelta(minutes=settings.access_token_expire_minutes)
+    )
+
+    return {
+        "token": access_token,
+        "user": {
+            "id": str(user.id),
+            "email": user.email,
+            "name": user.name,
+            "plan": user.plan,
+            "usage_limit": user.usage_limit,
+            "current_usage": user.current_usage
+        }
+    }

@@ -1,29 +1,35 @@
-from sqlalchemy import Column, String, Integer, DateTime, Boolean, Text, UUID, DECIMAL
+from sqlalchemy import Column, String, Integer, DateTime, Boolean, Text, UUID, DECIMAL, ForeignKey
 from sqlalchemy.sql import func
+from sqlalchemy.orm import relationship
 import uuid
 from ..core.database import Base
 
 
 class Staging(Base):
     __tablename__ = "stagings"
-    
+
     # Primary Key
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    
-    # User association (for Phase 2)
-    user_id = Column(UUID(as_uuid=True), nullable=True)
+
+    # User association
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+
+    # Project association
+    project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id"), nullable=True)
     
     # Status tracking
     status = Column(String(20), nullable=False, default="processing")
     
     # Input data
-    original_image_path = Column(Text, nullable=False)
+    original_image_path = Column(Text, nullable=False)  # Filename reference
+    original_image_data = Column(Text, nullable=True)   # Base64 encoded image
     style = Column(String(50), nullable=False)
     room_type = Column(String(50), nullable=True)
     quality_mode = Column(String(20), default="premium")
     
     # Output data
-    staged_image_path = Column(Text, nullable=True)
+    staged_image_path = Column(Text, nullable=True)     # Filename reference
+    staged_image_data = Column(Text, nullable=True)     # Base64 encoded image
     processing_time_ms = Column(Integer, nullable=True)
     quality_score = Column(DECIMAL(3, 2), nullable=True)
     architectural_integrity = Column(Boolean, nullable=True)
@@ -36,11 +42,15 @@ class Staging(Base):
     # Optional organization
     property_name = Column(String(200), nullable=True)
     batch_id = Column(UUID(as_uuid=True), nullable=True)
-    
-    def to_dict(self):
-        return {
+
+    # Relationships
+    project = relationship("Project", back_populates="stagings")
+
+    def to_dict(self, include_image_data: bool = False):
+        result = {
             "id": str(self.id),
             "user_id": str(self.user_id) if self.user_id else None,
+            "project_id": str(self.project_id) if self.project_id else None,
             "status": self.status,
             "original_image_path": self.original_image_path,
             "style": self.style,
@@ -56,3 +66,7 @@ class Staging(Base):
             "property_name": self.property_name,
             "batch_id": str(self.batch_id) if self.batch_id else None,
         }
+        if include_image_data:
+            result["original_image_data"] = self.original_image_data
+            result["staged_image_data"] = self.staged_image_data
+        return result

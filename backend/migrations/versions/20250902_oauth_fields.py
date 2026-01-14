@@ -1,7 +1,7 @@
 """Add OAuth fields to user table
 
 Revision ID: oauth_fields
-Revises: 20250101_0000_002_remove_styles_simplify_staging
+Revises: 20250101_0000_002
 Create Date: 2025-09-02 17:00:00.000000
 
 """
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 # revision identifiers
 revision = 'oauth_fields'
-down_revision = '20250101_0000_002_remove_styles_simplify_staging'
+down_revision = '20250101_0000_002'
 branch_labels = None
 depends_on = None
 

@@ -2,11 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { MantineProvider } from '@mantine/core';
 import { Notifications } from '@mantine/notifications';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { stagecraftTheme } from './styles/theme';
 import StagingPage from './pages/StagingPage';
 import AuthModal from './components/AuthModal';
 import Sidebar from './components/Sidebar';
 import SimpleHeader from './components/SimpleHeader';
+import NewProjectModal from './components/NewProjectModal';
+import LandingPage from './pages/LandingPage';
+import AuthSuccess from './pages/AuthSuccess';
+import AuthError from './pages/AuthError';
+import { authApi } from './services/api';
+import { User } from './types';
 import './styles/globals.css';
 import '@mantine/core/styles.css';
 import '@mantine/dropzone/styles.css';
@@ -23,84 +30,56 @@ const queryClient = new QueryClient({
   },
 });
 
-// Mock user state
-interface User {
-  id: string;
-  name: string;
-  email: string;
-}
-
-function App() {
+const AppShell: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [newProjectModalOpen, setNewProjectModalOpen] = useState(false);
   const [pendingGeneration, setPendingGeneration] = useState<File | null>(null);
-  const [currentProjectId, setCurrentProjectId] = useState<string>('current');
+  const [currentProjectId, setCurrentProjectId] = useState<string | undefined>(undefined);
+  const navigate = useNavigate();
 
-  // Handle OAuth callback on app load
+  // Restore session on app load
   useEffect(() => {
-    const handleAuthCallback = async () => {
-      const urlParams = new URLSearchParams(window.location.search);
-      const token = urlParams.get('token');
-      const error = urlParams.get('error');
-      
-      if (token) {
-        // Store token and fetch user data
-        localStorage.setItem('authToken', token);
-        
+    const restoreSession = async () => {
+      const existingToken = localStorage.getItem('authToken');
+      if (!existingToken) return;
+
+      // Try to restore user from localStorage first (faster initial render)
+      const cachedUser = localStorage.getItem('user');
+      if (cachedUser) {
         try {
-          const response = await fetch('http://localhost:8000/auth/me', {
-            headers: {
-              'Authorization': `Bearer ${token}`
-            }
-          });
-          
-          if (response.ok) {
-            const userData = await response.json();
-            setUser(userData);
-            // Clear URL params
-            window.history.replaceState({}, document.title, '/');
-          }
-        } catch (err) {
-          console.error('Failed to fetch user data:', err);
-          localStorage.removeItem('authToken');
+          setUser(JSON.parse(cachedUser));
+        } catch (e) {
+          // Invalid cached user, continue to fetch from API
         }
-      } else if (error) {
-        console.error('OAuth error:', error);
-        // Clear URL params
-        window.history.replaceState({}, document.title, '/');
       }
 
-      // Check for existing token on app load
-      const existingToken = localStorage.getItem('authToken');
-      if (existingToken && !user) {
-        try {
-          const response = await fetch('http://localhost:8000/auth/me', {
-            headers: {
-              'Authorization': `Bearer ${existingToken}`
-            }
-          });
-          
-          if (response.ok) {
-            const userData = await response.json();
-            setUser(userData);
-          } else {
-            localStorage.removeItem('authToken');
-          }
-        } catch (err) {
-          localStorage.removeItem('authToken');
-        }
+      // Validate token with backend
+      try {
+        const userData = await authApi.me();
+        setUser(userData);
+        localStorage.setItem('user', JSON.stringify(userData));
+      } catch (err) {
+        // Token is invalid or expired
+        console.log('Session expired, clearing auth data');
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('user');
+        setUser(null);
       }
     };
 
-    handleAuthCallback();
+    restoreSession();
   }, []);
-
 
   const handleLogin = (userData: User) => {
     setUser(userData);
+    localStorage.setItem('user', JSON.stringify(userData));
     setAuthModalOpen(false);
-    
+
+    // Navigate to staging page after login
+    navigate('/staging');
+
     // If there was a pending generation, proceed with it
     if (pendingGeneration) {
       setPendingGeneration(null);
@@ -109,7 +88,8 @@ function App() {
 
   const handleLogout = () => {
     setUser(null);
-    localStorage.removeItem('authToken');
+    authApi.logout();
+    setSidebarOpen(false);
   };
 
   const handleGenerationRequest = (imageFile: File) => {
@@ -123,9 +103,12 @@ function App() {
   };
 
   const handleNewProject = () => {
-    // Auto-create a new project context
-    const newProjectId = `proj-${Date.now()}`;
-    setCurrentProjectId(newProjectId);
+    // Open the new project modal
+    setNewProjectModalOpen(true);
+  };
+
+  const handleProjectCreated = (projectId: string) => {
+    setCurrentProjectId(projectId);
     setSidebarOpen(false);
   };
 
@@ -135,43 +118,80 @@ function App() {
   };
 
   return (
+    <>
+      <Routes>
+        <Route
+          path="/"
+          element={
+            <LandingPage
+              user={user}
+              onLoginClick={() => setAuthModalOpen(true)}
+              onSignupClick={() => setAuthModalOpen(true)}
+              onLaunchClick={() => navigate('/staging')}
+            />
+          }
+        />
+        <Route
+          path="/staging"
+          element={
+            <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+              <SimpleHeader
+                user={user}
+                onLogin={() => setAuthModalOpen(true)}
+                onLogout={handleLogout}
+                onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
+              />
+
+              <main style={{ flex: 1 }}>
+                <StagingPage
+                  onGenerationRequest={handleGenerationRequest}
+                  user={user}
+                  currentProjectId={currentProjectId}
+                />
+              </main>
+
+              <Sidebar
+                opened={sidebarOpen}
+                onClose={() => setSidebarOpen(false)}
+                user={user}
+                onNewProject={handleNewProject}
+                currentProjectId={currentProjectId}
+                onSelectProject={handleSelectProject}
+              />
+            </div>
+          }
+        />
+        <Route path="/auth/success" element={<AuthSuccess onLogin={handleLogin} />} />
+        <Route path="/auth/error" element={<AuthError />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+
+      <AuthModal
+        opened={authModalOpen}
+        onClose={() => {
+          setAuthModalOpen(false);
+          setPendingGeneration(null);
+        }}
+        onLogin={handleLogin}
+      />
+
+      <NewProjectModal
+        opened={newProjectModalOpen}
+        onClose={() => setNewProjectModalOpen(false)}
+        onProjectCreated={handleProjectCreated}
+      />
+    </>
+  );
+};
+
+function App() {
+  return (
     <QueryClientProvider client={queryClient}>
       <MantineProvider theme={stagecraftTheme}>
         <Notifications position="top-right" />
-        <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-          <SimpleHeader 
-            user={user}
-            onLogin={() => setAuthModalOpen(true)}
-            onLogout={handleLogout}
-            onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
-          />
-          
-          <main style={{ flex: 1 }}>
-            <StagingPage 
-              onGenerationRequest={handleGenerationRequest}
-              user={user}
-              currentProjectId={currentProjectId}
-            />
-          </main>
-          
-          <Sidebar
-            opened={sidebarOpen}
-            onClose={() => setSidebarOpen(false)}
-            user={user}
-            onNewProject={handleNewProject}
-            currentProjectId={currentProjectId}
-            onSelectProject={handleSelectProject}
-          />
-          
-          <AuthModal
-            opened={authModalOpen}
-            onClose={() => {
-              setAuthModalOpen(false);
-              setPendingGeneration(null);
-            }}
-            onLogin={handleLogin}
-          />
-        </div>
+        <BrowserRouter>
+          <AppShell />
+        </BrowserRouter>
       </MantineProvider>
     </QueryClientProvider>
   );

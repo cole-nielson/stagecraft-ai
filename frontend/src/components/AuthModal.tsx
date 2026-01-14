@@ -1,13 +1,9 @@
 import React, { useState } from 'react';
 import { Modal, Text, Button, TextInput, Stack, Group, Tabs, Alert, Divider } from '@mantine/core';
-import { IconMail, IconLock, IconUser, IconInfoCircle, IconBrandGoogle } from '@tabler/icons-react';
+import { IconMail, IconLock, IconUser, IconInfoCircle, IconBrandGoogle, IconAlertCircle } from '@tabler/icons-react';
 import { motion } from 'framer-motion';
-
-interface User {
-  id: string;
-  name: string;
-  email: string;
-}
+import { authApi, API_BASE_URL } from '../services/api';
+import { User } from '../types';
 
 interface AuthModalProps {
   opened: boolean;
@@ -21,77 +17,71 @@ const AuthModal: React.FC<AuthModalProps> = ({ opened, onClose, onLogin }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
+  const [error, setError] = useState<string | null>(null);
 
-  const handleDemoLogin = () => {
-    setIsLoading(true);
-    
-    // Simulate API call
-    setTimeout(() => {
-      const demoUser: User = {
-        id: 'demo-user-1',
-        name: 'Demo User',
-        email: 'demo@stagecraft.ai'
-      };
-      
-      onLogin(demoUser);
-      setIsLoading(false);
-      
-      // Reset form
-      setEmail('');
-      setPassword('');
-      setName('');
-    }, 1000);
+  const resetForm = () => {
+    setEmail('');
+    setPassword('');
+    setName('');
+    setError(null);
   };
 
-  const handleSignIn = () => {
+  const handleSignIn = async () => {
     if (!email || !password) return;
-    
+
     setIsLoading(true);
-    
-    // Simulate API call
-    setTimeout(() => {
-      const user: User = {
-        id: 'user-' + Date.now(),
-        name: email.split('@')[0],
-        email: email
-      };
-      
-      onLogin(user);
+    setError(null);
+
+    try {
+      const response = await authApi.login(email, password);
+
+      // Store token and user in localStorage
+      localStorage.setItem('authToken', response.token);
+      localStorage.setItem('user', JSON.stringify(response.user));
+
+      onLogin(response.user);
+      resetForm();
+    } catch (err: any) {
+      const message = err.response?.data?.detail || 'Login failed. Please check your credentials.';
+      setError(message);
+    } finally {
       setIsLoading(false);
-      
-      // Reset form
-      setEmail('');
-      setPassword('');
-    }, 1000);
+    }
   };
 
-  const handleSignUp = () => {
+  const handleSignUp = async () => {
     if (!email || !password || !name) return;
-    
+
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters');
+      return;
+    }
+
     setIsLoading(true);
-    
-    // Simulate API call
-    setTimeout(() => {
-      const user: User = {
-        id: 'user-' + Date.now(),
-        name: name,
-        email: email
-      };
-      
-      onLogin(user);
+    setError(null);
+
+    try {
+      const response = await authApi.register(email, password, name);
+
+      // Store token and user in localStorage
+      localStorage.setItem('authToken', response.token);
+      localStorage.setItem('user', JSON.stringify(response.user));
+
+      onLogin(response.user);
+      resetForm();
+    } catch (err: any) {
+      const message = err.response?.data?.detail || 'Registration failed. Please try again.';
+      setError(message);
+    } finally {
       setIsLoading(false);
-      
-      // Reset form
-      setEmail('');
-      setPassword('');
-      setName('');
-    }, 1000);
+    }
   };
 
   const handleGoogleLogin = () => {
     setIsLoading(true);
+    setError(null);
     // Redirect to backend Google OAuth endpoint
-    window.location.href = 'http://localhost:8000/auth/google';
+    window.location.href = authApi.getGoogleAuthUrl();
   };
 
   return (
@@ -113,27 +103,19 @@ const AuthModal: React.FC<AuthModalProps> = ({ opened, onClose, onLogin }) => {
       padding="xl"
     >
       <Stack gap="lg">
-        {/* Demo Login CTA */}
-        <Alert
-          icon={<IconInfoCircle size={16} />}
-          color="blue"
-          variant="light"
-          title="Try it now!"
-        >
-          <Text size="sm" mb="sm">
-            Use our demo account to explore all features instantly
-          </Text>
-          <Button
+        {/* Error Alert */}
+        {error && (
+          <Alert
+            icon={<IconAlertCircle size={16} />}
+            color="red"
             variant="light"
-            color="blue"
-            size="sm"
-            onClick={handleDemoLogin}
-            loading={isLoading}
-            fullWidth
+            title="Error"
+            withCloseButton
+            onClose={() => setError(null)}
           >
-            Continue with Demo Account
-          </Button>
-        </Alert>
+            {error}
+          </Alert>
+        )}
 
         {/* Google OAuth Button */}
         <Button
