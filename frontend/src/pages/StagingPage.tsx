@@ -115,17 +115,27 @@ const StagingPage: React.FC<StagingPageProps> = ({ onGenerationRequest, user, cu
         </motion.div>
 
         {/* Error Display */}
-        {error && (
-          <Alert
-            icon={<IconAlertCircle size={16} />}
-            title="Staging Error"
-            color="red"
-            variant="light"
-            onClose={resetStaging}
-            withCloseButton
-          >
-            {error.message || 'An unexpected error occurred. Please try again.'}
-          </Alert>
+        {(error || isFailed) && (
+          <Paper shadow="sm" radius="lg" p="xl" style={{ maxWidth: '600px', margin: '0 auto' }}>
+            <Alert
+              icon={<IconAlertCircle size={16} />}
+              title="Staging Failed"
+              color="red"
+              variant="light"
+              mb="md"
+            >
+              {error?.message || staging?.error || 'An unexpected error occurred. Please try again.'}
+            </Alert>
+            <div style={{ textAlign: 'center' }}>
+              <button
+                className="btn-luxury-primary"
+                onClick={handleStageAnother}
+                style={{ padding: '12px 32px' }}
+              >
+                Try Again
+              </button>
+            </div>
+          </Paper>
         )}
 
         {/* Results Display */}
@@ -150,7 +160,7 @@ const StagingPage: React.FC<StagingPageProps> = ({ onGenerationRequest, user, cu
         )}
 
         {/* Main Staging Interface */}
-        {!isCompleted && !isStaging && (
+        {!isCompleted && !isStaging && !isFailed && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
