@@ -15,7 +15,7 @@ class AIService:
         # Configure Google Gemini
         if settings.google_ai_api_key:
             genai.configure(api_key=settings.google_ai_api_key)
-            self.gemini_model = genai.GenerativeModel('gemini-2.0-flash-exp-image-generation')
+            self.gemini_model = genai.GenerativeModel('gemini-3-pro-image-preview')
         else:
             self.gemini_model = None
             logger.warning("No Google AI API key configured")
