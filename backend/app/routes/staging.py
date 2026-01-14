@@ -19,8 +19,16 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-async def process_staging_background(staging_id: str, image_bytes: bytes):
+import asyncio
+
+def process_staging_background(staging_id: str, image_bytes: bytes):
     """Background task to process room staging with AI."""
+    # Run the async function in a new event loop
+    asyncio.run(_process_staging_async(staging_id, image_bytes))
+
+
+async def _process_staging_async(staging_id: str, image_bytes: bytes):
+    """Async implementation of staging processing."""
     db = SessionLocal()
     
     try:
@@ -54,6 +62,8 @@ async def process_staging_background(staging_id: str, image_bytes: bytes):
 
     except Exception as e:
         logger.error(f"Error processing staging {staging_id}: {str(e)}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
         try:
             staging = db.query(Staging).filter(Staging.id == staging_id).first()
             if staging:
