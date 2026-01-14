@@ -19,8 +19,9 @@ COPY backend/ .
 # Create uploads directory
 RUN mkdir -p uploads
 
-# Expose port
-EXPOSE 8000
+# Railway provides PORT env variable
+ENV PORT=8000
+EXPOSE $PORT
 
-# Run application
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Run application - use shell form to expand $PORT
+CMD uvicorn app.main:app --host 0.0.0.0 --port $PORT
