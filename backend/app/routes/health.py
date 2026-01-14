@@ -9,8 +9,17 @@ router = APIRouter()
 
 
 @router.get("/health")
-async def health_check(db: Session = Depends(get_db)):
-    """System health check for monitoring."""
+async def health_check():
+    """Simple health check - no database required."""
+    return {
+        "status": "healthy",
+        "timestamp": time.time(),
+    }
+
+
+@router.get("/health/full")
+async def full_health_check(db: Session = Depends(get_db)):
+    """Full system health check with database."""
     
     health_status = {
         "status": "healthy",
