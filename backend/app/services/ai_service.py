@@ -1,4 +1,5 @@
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 from PIL import Image
 import io
 import base64
@@ -12,12 +13,12 @@ logger = logging.getLogger(__name__)
 
 class AIService:
     def __init__(self):
-        # Configure Google Gemini
+        # Configure Google Gemini with the new SDK
         if settings.google_ai_api_key:
-            genai.configure(api_key=settings.google_ai_api_key)
-            self.gemini_model = genai.GenerativeModel('gemini-3-pro-image-preview')
+            self.client = genai.Client(api_key=settings.google_ai_api_key)
+            self.model_name = 'gemini-2.0-flash-exp'  # Model that supports image generation
         else:
-            self.gemini_model = None
+            self.client = None
             logger.warning("No Google AI API key configured")
     
     def get_staging_prompt(self) -> str:
@@ -31,7 +32,9 @@ CRITICAL: Preserve ALL architectural elements exactly as shown:
 - ONLY add removable furniture, rugs, and decorative items
 - Maintain the exact same camera angle and perspective
 
-Add appropriate furniture that appeals to potential buyers while keeping the original room structure 100% identical."""
+Add appropriate furniture that appeals to potential buyers while keeping the original room structure 100% identical.
+
+Generate a new image of this room with furniture added."""
     
     async def stage_room_from_bytes(self, image_bytes: bytes) -> Tuple[bool, Optional[bytes], Optional[float], Optional[str]]:
         """
@@ -56,7 +59,7 @@ Add appropriate furniture that appeals to potential buyers while keeping the ori
             processed_image = self._preprocess_image(image)
 
             # Stage with Gemini
-            if not self.gemini_model:
+            if not self.client:
                 return False, None, None, "AI service not configured"
 
             staged_image = await self._generate_staged_image(processed_image, prompt)
@@ -72,21 +75,42 @@ Add appropriate furniture that appeals to potential buyers while keeping the ori
 
         except Exception as e:
             logger.error(f"Error during staging: {str(e)}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
             return False, None, None, f"Error during staging: {str(e)}"
     
     async def _generate_staged_image(self, image: Image.Image, prompt: str) -> Optional[Image.Image]:
-        """Generate staged image using Gemini."""
+        """Generate staged image using Gemini with the new SDK."""
         try:
             logger.info("Calling Gemini for image staging...")
-            logger.info(f"Using model: {self.gemini_model.model_name if self.gemini_model else 'None'}")
+            logger.info(f"Using model: {self.model_name}")
             
-            # Use async version of generate_content
-            response = await self.gemini_model.generate_content_async([prompt, image])
+            # Convert PIL Image to bytes for the API
+            img_buffer = io.BytesIO()
+            image.save(img_buffer, format='JPEG', quality=95)
+            img_bytes = img_buffer.getvalue()
             
-            logger.info(f"Response received: {type(response)}")
-            logger.info(f"Response text preview: {getattr(response, 'text', 'no text')[:200] if hasattr(response, 'text') else 'no text attr'}")
+            # Create the content with image and text
+            contents = [
+                types.Part.from_bytes(data=img_bytes, mime_type="image/jpeg"),
+                types.Part.from_text(text=prompt)
+            ]
             
-            if response and hasattr(response, 'candidates') and response.candidates:
+            # Configure to return both text and image
+            config = types.GenerateContentConfig(
+                response_modalities=["TEXT", "IMAGE"],
+            )
+            
+            # Generate content
+            response = self.client.models.generate_content(
+                model=self.model_name,
+                contents=contents,
+                config=config
+            )
+            
+            logger.info(f"Response received")
+            
+            if response and response.candidates:
                 candidate = response.candidates[0]
                 logger.info(f"Candidate finish_reason: {getattr(candidate, 'finish_reason', 'unknown')}")
                 
@@ -94,24 +118,19 @@ Add appropriate furniture that appeals to potential buyers while keeping the ori
                     if hasattr(candidate.content, 'parts'):
                         logger.info(f"Number of parts: {len(candidate.content.parts)}")
                         for i, part in enumerate(candidate.content.parts):
-                            logger.info(f"Part {i} type: {type(part)}, has inline_data: {hasattr(part, 'inline_data')}")
+                            logger.info(f"Part {i}: has text={part.text is not None}, has inline_data={part.inline_data is not None}")
+                            
                             # Check for inline image data
-                            if hasattr(part, 'inline_data') and part.inline_data:
-                                logger.info(f"Found inline_data, has data: {hasattr(part.inline_data, 'data')}")
-                                if hasattr(part.inline_data, 'data'):
-                                    image_data = part.inline_data.data
-                                    if isinstance(image_data, str):
-                                        image_bytes = base64.b64decode(image_data)
-                                    else:
-                                        image_bytes = image_data
-                                    
-                                    result_image = Image.open(io.BytesIO(image_bytes))
-                                    logger.info("Successfully generated staged image from Gemini")
-                                    return result_image
-                            elif hasattr(part, 'text') and part.text:
+                            if part.inline_data is not None:
+                                logger.info(f"Found inline_data with mime_type: {part.inline_data.mime_type}")
+                                image_data = part.inline_data.data
+                                result_image = Image.open(io.BytesIO(image_data))
+                                logger.info("Successfully generated staged image from Gemini")
+                                return result_image
+                            elif part.text:
                                 logger.info(f"Part {i} has text: {part.text[:200]}...")
             else:
-                logger.warning(f"No candidates in response. Response: {response}")
+                logger.warning(f"No candidates in response")
             
             logger.warning("No image generated by Gemini - no inline_data found in response")
             return None
