@@ -107,8 +107,27 @@ async def test_ai_service():
             result["finish_reason"] = str(getattr(candidate, 'finish_reason', 'unknown'))
             if hasattr(candidate, 'content') and candidate.content:
                 if hasattr(candidate.content, 'parts'):
-                    result["candidate_parts"] = len(candidate.content.parts)
-            result["status"] = "candidates_only"
+                    parts = candidate.content.parts
+                    result["candidate_parts"] = len(parts)
+                    parts_detail = []
+                    has_image = False
+                    for i, part in enumerate(parts):
+                        detail = {
+                            "index": i,
+                            "has_text": part.text is not None,
+                            "has_inline_data": part.inline_data is not None,
+                        }
+                        if part.text:
+                            detail["text_preview"] = part.text[:300]
+                        if part.inline_data:
+                            has_image = True
+                            detail["mime_type"] = getattr(part.inline_data, 'mime_type', 'unknown')
+                            detail["data_length"] = len(part.inline_data.data) if part.inline_data.data else 0
+                        parts_detail.append(detail)
+                    result["candidate_parts_detail"] = parts_detail
+                    result["status"] = "success_image" if has_image else "text_only_no_image"
+            else:
+                result["status"] = "candidates_no_content"
         else:
             result["status"] = "empty_response"
 
