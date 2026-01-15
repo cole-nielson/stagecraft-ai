@@ -2,6 +2,7 @@ from google import genai
 from google.genai import types
 from PIL import Image
 import io
+import base64
 import time
 import logging
 from typing import Optional, Tuple, Dict, Any
@@ -165,6 +166,14 @@ Generate a new image of this room with furniture added."""
                                     logger.info("Using direct data access")
                                     image_data = part.inline_data.data
                                     logger.info(f"Data length: {len(image_data) if image_data else 0}")
+                                    logger.info(f"Data type: {type(image_data)}")
+
+                                    # Handle base64 encoded data (SDK may return string)
+                                    if isinstance(image_data, str):
+                                        logger.info("Data is base64 string, decoding...")
+                                        image_data = base64.b64decode(image_data)
+                                        logger.info(f"Decoded length: {len(image_data)}")
+
                                     result = Image.open(io.BytesIO(image_data))
                                     logger.info(f"Opened image: {result.size}")
                                     return result
