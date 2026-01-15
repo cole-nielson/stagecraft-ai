@@ -15,8 +15,8 @@ class AIService:
         # Configure Google Gemini with the new SDK
         if settings.google_ai_api_key:
             self.client = genai.Client(api_key=settings.google_ai_api_key)
-            # Use gemini-2.0-flash-exp which supports image generation
-            self.model_name = 'gemini-2.0-flash-exp'
+            # Use gemini-3-pro-image-preview for image generation
+            self.model_name = 'gemini-3-pro-image-preview'
         else:
             self.client = None
             logger.warning("No Google AI API key configured")
