@@ -57,7 +57,7 @@ PostgreSQL (Railway)
 | `backend/app/routes/health.py` | Simplified, removed Redis/Celery health checks |
 | `backend/app/models/staging.py` | Added `original_image_data` and `staged_image_data` columns (Text, base64) |
 | `backend/app/core/config.py` | Removed Redis URL requirement |
-| `backend/requirements.txt` | Removed celery, redis; added email-validator |
+| `backend/requirements.txt` | Removed celery, redis; added google-genai, email-validator |
 | `backend/Dockerfile` | Updated paths for Railway (COPY backend/...), uses $PORT env variable |
 
 ### Frontend
@@ -108,12 +108,35 @@ def process_staging_background(staging_id: str, image_bytes: bytes):
 background_tasks.add_task(process_staging_background, staging_id, image_bytes)
 ```
 
-### 3. AI Model
+### 3. AI Model & SDK
 
-The Gemini model MUST be `gemini-3-pro-image-preview` (not `gemini-pro-vision` or `gemini-1.5-pro`). This specific model supports image generation.
+Uses the `google-genai` SDK (not the older `google-generativeai` package) with `gemini-3-pro-image-preview` model for image generation.
 
 ```python
-self.gemini_model = genai.GenerativeModel('gemini-3-pro-image-preview')
+from google import genai
+from google.genai import types
+
+# Initialize client
+self.client = genai.Client(api_key=settings.google_ai_api_key)
+self.model_name = 'gemini-3-pro-image-preview'
+
+# Generate content with image output
+config = types.GenerateContentConfig(
+    response_modalities=["TEXT", "IMAGE"],
+)
+response = self.client.models.generate_content(
+    model=self.model_name,
+    contents=[prompt, image],
+    config=config
+)
+```
+
+**Important:** The SDK returns image data as base64-encoded bytes. Must decode before opening with PIL:
+```python
+image_data = part.inline_data.data
+if data[:4] in [b'/9j/', b'iVBO']:  # Base64 signatures
+    image_data = base64.b64decode(image_data)
+result = Image.open(io.BytesIO(image_data))
 ```
 
 ### 4. Dockerfile Changes

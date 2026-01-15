@@ -85,6 +85,7 @@ StageCraft AI addresses a real problem in real estate: professional home staging
 |------------|---------|
 | **FastAPI** | Async Python web framework |
 | **BackgroundTasks** | Async task processing |
+| **google-genai** | Google Gemini AI SDK |
 | **SQLAlchemy** | ORM |
 | **Alembic** | Database migrations |
 | **Pydantic** | Request/response validation |
@@ -157,19 +158,28 @@ const stagingStatusQuery = useQuery({
 
 ### 4. Gemini AI Integration
 
-Direct integration with Google's Gemini API for image generation:
+Integration with Google's Gemini API using the `google-genai` SDK for image generation:
 
 ```python
+from google import genai
+from google.genai import types
+
 class AIService:
     def __init__(self):
-        genai.configure(api_key=settings.google_ai_api_key)
-        self.gemini_model = genai.GenerativeModel('gemini-3-pro-image-preview')
-    
-    async def stage_room_from_bytes(self, image_bytes: bytes):
-        image = Image.open(io.BytesIO(image_bytes))
-        response = self.gemini_model.generate_content([prompt, image])
-        # Extract generated image from response
-        ...
+        self.client = genai.Client(api_key=settings.google_ai_api_key)
+        self.model_name = 'gemini-3-pro-image-preview'
+
+    def _generate_staged_image(self, image: Image.Image) -> Optional[Image.Image]:
+        config = types.GenerateContentConfig(
+            response_modalities=["TEXT", "IMAGE"],
+        )
+        response = self.client.models.generate_content(
+            model=self.model_name,
+            contents=[prompt, image],
+            config=config
+        )
+        # Extract generated image from response.candidates
+        return self._extract_image_from_response(response)
 ```
 
 ---
