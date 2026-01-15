@@ -21,6 +21,9 @@ router = APIRouter()
 
 def process_staging_background(staging_id: str, image_bytes: bytes):
     """Background task to process room staging with AI - fully synchronous."""
+    logger.info(f"Background task started for staging {staging_id}")
+    logger.info(f"Image bytes length: {len(image_bytes)}")
+    
     db = SessionLocal()
     
     try:
@@ -31,9 +34,18 @@ def process_staging_background(staging_id: str, image_bytes: bytes):
             return
 
         logger.info(f"Processing staging {staging_id}")
+        logger.info(f"AI service client configured: {ai_service.client is not None}")
 
         # Process with AI service - use sync method
-        success, staged_bytes, quality_score, error = ai_service.stage_room_from_bytes_sync(image_bytes)
+        logger.info(f"Calling AI service...")
+        try:
+            success, staged_bytes, quality_score, error = ai_service.stage_room_from_bytes_sync(image_bytes)
+            logger.info(f"AI service returned: success={success}, has_bytes={staged_bytes is not None}, error={error}")
+        except Exception as ai_error:
+            logger.error(f"AI service exception: {ai_error}")
+            import traceback
+            logger.error(f"AI traceback: {traceback.format_exc()}")
+            success, staged_bytes, quality_score, error = False, None, None, str(ai_error)
 
         if success and staged_bytes:
             # Update staging record with success
