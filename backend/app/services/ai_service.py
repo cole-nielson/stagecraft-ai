@@ -2,7 +2,6 @@ from google import genai
 from google.genai import types
 from PIL import Image
 import io
-import base64
 import time
 import logging
 from typing import Optional, Tuple, Dict, Any
@@ -16,7 +15,8 @@ class AIService:
         # Configure Google Gemini with the new SDK
         if settings.google_ai_api_key:
             self.client = genai.Client(api_key=settings.google_ai_api_key)
-            self.model_name = 'gemini-2.0-flash-exp'  # Model that supports image generation
+            # Use gemini-2.0-flash-exp which supports image generation
+            self.model_name = 'gemini-2.0-flash-exp'
         else:
             self.client = None
             logger.warning("No Google AI API key configured")
@@ -36,10 +36,11 @@ Add appropriate furniture that appeals to potential buyers while keeping the ori
 
 Generate a new image of this room with furniture added."""
     
-    async def stage_room_from_bytes(self, image_bytes: bytes) -> Tuple[bool, Optional[bytes], Optional[float], Optional[str]]:
+    def stage_room_from_bytes_sync(self, image_bytes: bytes) -> Tuple[bool, Optional[bytes], Optional[float], Optional[str]]:
         """
         Stage a room using AI. Takes image bytes directly.
         Returns (success, staged_image_bytes, quality_score, error_message).
+        Synchronous version for background tasks.
         """
         start_time = time.time()
 
@@ -62,7 +63,7 @@ Generate a new image of this room with furniture added."""
             if not self.client:
                 return False, None, None, "AI service not configured"
 
-            staged_image = await self._generate_staged_image(processed_image, prompt)
+            staged_image = self._generate_staged_image_sync(processed_image, prompt)
             
             if staged_image:
                 # Convert back to bytes
@@ -79,8 +80,8 @@ Generate a new image of this room with furniture added."""
             logger.error(f"Traceback: {traceback.format_exc()}")
             return False, None, None, f"Error during staging: {str(e)}"
     
-    async def _generate_staged_image(self, image: Image.Image, prompt: str) -> Optional[Image.Image]:
-        """Generate staged image using Gemini with the new SDK."""
+    def _generate_staged_image_sync(self, image: Image.Image, prompt: str) -> Optional[Image.Image]:
+        """Generate staged image using Gemini - synchronous version."""
         try:
             logger.info("Calling Gemini for image staging...")
             logger.info(f"Using model: {self.model_name}")
@@ -101,8 +102,8 @@ Generate a new image of this room with furniture added."""
                 response_modalities=["TEXT", "IMAGE"],
             )
             
-            # Generate content using async API
-            response = await self.client.aio.models.generate_content(
+            # Generate content using synchronous API
+            response = self.client.models.generate_content(
                 model=self.model_name,
                 contents=contents,
                 config=config

@@ -19,16 +19,8 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-import asyncio
-
 def process_staging_background(staging_id: str, image_bytes: bytes):
-    """Background task to process room staging with AI."""
-    # Run the async function in a new event loop
-    asyncio.run(_process_staging_async(staging_id, image_bytes))
-
-
-async def _process_staging_async(staging_id: str, image_bytes: bytes):
-    """Async implementation of staging processing."""
+    """Background task to process room staging with AI - fully synchronous."""
     db = SessionLocal()
     
     try:
@@ -40,8 +32,8 @@ async def _process_staging_async(staging_id: str, image_bytes: bytes):
 
         logger.info(f"Processing staging {staging_id}")
 
-        # Process with AI service
-        success, staged_bytes, quality_score, error = await ai_service.stage_room_from_bytes(image_bytes)
+        # Process with AI service - use sync method
+        success, staged_bytes, quality_score, error = ai_service.stage_room_from_bytes_sync(image_bytes)
 
         if success and staged_bytes:
             # Update staging record with success
