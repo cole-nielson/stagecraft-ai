@@ -4,7 +4,7 @@
 
 Transform empty rooms into professionally staged spaces using Google's Gemini AI. Upload a photo of an empty room and receive a photorealistic staged version in seconds.
 
-[Live Demo](https://stagecraft-ai.vercel.app) | [Backend API](https://stagecraft-ai-production.up.railway.app/docs)
+[Live Demo](https://stagecraft-ai-zkvg.vercel.app) | [Backend API](https://stagecraft-ai-production-5711.up.railway.app/docs)
 
 ---
 
@@ -14,60 +14,56 @@ StageCraft AI addresses a real problem in real estate: professional home staging
 
 ### Key Features
 
-- **AI-Powered Staging** - Uses Google Gemini's image generation to add realistic furniture while preserving architectural details
-- **Batch Processing** - Stage up to 10 rooms simultaneously with parallel Celery task processing
+- **AI-Powered Staging** - Uses Google Gemini's `gemini-3-pro-image-preview` model to add realistic furniture while preserving architectural details
 - **Real-Time Progress** - Polling-based status updates show processing progress and estimated completion time
-- **Rate Limiting** - Redis-based rate limiting (50/user/day, 300 global/day) for API cost control
-- **OAuth Authentication** - Google OAuth integration for user management
-- **Distributed Architecture** - Separate API and worker services with shared Redis storage for horizontal scaling
+- **User Authentication** - Email/password and Google OAuth for user management
+- **Image History** - Staged images stored in PostgreSQL for user history
+- **Simple Architecture** - Single backend service with FastAPI BackgroundTasks (no Celery/Redis complexity)
 
 ---
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                              FRONTEND                                    │
-│                         (Vercel - React/Vite)                           │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐    │
-│  │   Upload    │  │  Processing │  │   Results   │  │    Auth     │    │
-│  │  Dropzone   │  │   States    │  │   Display   │  │   Modal     │    │
-│  └─────────────┘  └─────────────┘  └─────────────┘  └─────────────┘    │
-└────────────────────────────────┬────────────────────────────────────────┘
-                                 │ REST API
-                                 ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│                          BACKEND API                                     │
-│                      (Railway - FastAPI)                                 │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐    │
-│  │   Staging   │  │    Auth     │  │   Images    │  │   Health    │    │
-│  │   Routes    │  │   Routes    │  │   Routes    │  │   Routes    │    │
-│  └──────┬──────┘  └─────────────┘  └──────┬──────┘  └─────────────┘    │
-│         │                                  │                             │
-│         ▼                                  ▼                             │
-│  ┌─────────────┐                   ┌─────────────┐                      │
-│  │    Rate     │                   │   Image     │                      │
-│  │   Limiter   │                   │   Storage   │◄─────────────────┐   │
-│  └──────┬──────┘                   └──────┬──────┘                  │   │
-└─────────┼──────────────────────────────────┼────────────────────────┼───┘
-          │                                  │                        │
-          ▼                                  ▼                        │
-┌─────────────────┐              ┌─────────────────┐                  │
-│   PostgreSQL    │              │      Redis      │◄─────────┐       │
-│    (Railway)    │              │    (Railway)    │          │       │
-└─────────────────┘              └────────┬────────┘          │       │
-                                          │ Task Queue        │       │
-                                          ▼                   │       │
-                               ┌─────────────────────────────────────┐
-                               │          CELERY WORKER              │
-                               │         (Railway - Python)          │
-                               │  ┌─────────────┐  ┌─────────────┐  │
-                               │  │     AI      │  │   Image     │  │
-                               │  │   Service   │  │   Storage   │──┘
-                               │  │  (Gemini)   │  │   (Redis)   │
-                               │  └─────────────┘  └─────────────┘
-                               └─────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│                           FRONTEND                                │
+│                      (Vercel - React/Vite)                       │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐              │
+│  │   Upload    │  │  Processing │  │   Results   │              │
+│  │  Dropzone   │  │   States    │  │   Display   │              │
+│  └─────────────┘  └─────────────┘  └─────────────┘              │
+└────────────────────────────┬─────────────────────────────────────┘
+                             │ REST API
+                             ▼
+┌──────────────────────────────────────────────────────────────────┐
+│                        BACKEND API                                │
+│                    (Railway - FastAPI)                           │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐              │
+│  │   Staging   │  │    Auth     │  │   Images    │              │
+│  │   Routes    │  │   Routes    │  │   Routes    │              │
+│  └──────┬──────┘  └─────────────┘  └──────┬──────┘              │
+│         │                                  │                      │
+│         ▼                                  ▼                      │
+│  ┌─────────────┐                   ┌─────────────┐              │
+│  │ Background  │                   │  PostgreSQL │              │
+│  │   Tasks     │                   │   (Images)  │              │
+│  └──────┬──────┘                   └─────────────┘              │
+│         │                                                        │
+│         ▼                                                        │
+│  ┌─────────────┐                                                │
+│  │  AI Service │                                                │
+│  │  (Gemini)   │                                                │
+│  └─────────────┘                                                │
+└──────────────────────────────────────────────────────────────────┘
+                             │
+                             ▼
+                   ┌─────────────────┐
+                   │   PostgreSQL    │
+                   │   (Railway)     │
+                   └─────────────────┘
 ```
+
+**Services: 2** (Frontend + Backend with PostgreSQL)
 
 ---
 
@@ -88,7 +84,7 @@ StageCraft AI addresses a real problem in real estate: professional home staging
 | Technology | Purpose |
 |------------|---------|
 | **FastAPI** | Async Python web framework |
-| **Celery** | Distributed task queue |
+| **BackgroundTasks** | Async task processing |
 | **SQLAlchemy** | ORM |
 | **Alembic** | Database migrations |
 | **Pydantic** | Request/response validation |
@@ -97,70 +93,52 @@ StageCraft AI addresses a real problem in real estate: professional home staging
 ### Infrastructure
 | Technology | Purpose |
 |------------|---------|
-| **Google Gemini** | AI image generation |
-| **PostgreSQL** | Primary database |
-| **Redis** | Task queue broker + distributed image storage |
+| **Google Gemini** | AI image generation (`gemini-3-pro-image-preview`) |
+| **PostgreSQL** | Primary database + image storage (base64) |
 | **Docker** | Containerization |
-| **Railway** | Backend hosting (API + Worker + DB + Redis) |
+| **Railway** | Backend hosting (API + DB) |
 | **Vercel** | Frontend hosting |
 
 ---
 
 ## Technical Highlights
 
-### 1. Distributed Image Storage with Redis
+### 1. Base64 Image Storage in PostgreSQL
 
-A key challenge: the backend API and Celery workers run as separate containers that can't share a filesystem. I solved this by implementing Redis-based image storage, allowing both services to access uploaded and processed images:
-
-```python
-class ImageStorage:
-    IMAGE_TTL = 60 * 60 * 24  # 24 hours
-
-    def store_image(self, staging_id: str, image_bytes: bytes, image_type: str):
-        key = f"image:{image_type}:{staging_id}"
-        encoded = base64.b64encode(image_bytes).decode('utf-8')
-        self.redis.setex(key, self.IMAGE_TTL, encoded)
-
-    def get_image(self, staging_id: str, image_type: str) -> Optional[bytes]:
-        key = f"image:{image_type}:{staging_id}"
-        encoded = self.redis.get(key)
-        return base64.b64decode(encoded) if encoded else None
-```
-
-### 2. Async Task Processing with Progress Updates
-
-Long-running AI tasks are offloaded to Celery workers, with progress updates stored for frontend polling:
+Images are stored as base64-encoded text in PostgreSQL, eliminating the need for separate file storage:
 
 ```python
-@celery_app.task(bind=True)
-def process_staging(self, staging_id: str):
-    current_task.update_state(
-        state='PROGRESS',
-        meta={'progress': 50, 'stage': 'Generating staged room...'}
-    )
-
-    # Process with Gemini AI
-    success, result, quality_score = asyncio.run(
-        ai_service.stage_room(staging_id)
-    )
+# Staging model with image data columns
+class Staging(Base):
+    __tablename__ = "stagings"
+    
+    original_image_data = Column(Text)  # Base64 encoded
+    staged_image_data = Column(Text)    # Base64 encoded
 ```
 
-### 3. IP-Based Rate Limiting
+### 2. FastAPI BackgroundTasks for AI Processing
 
-Redis-backed rate limiting protects the API while ensuring fair usage for the portfolio demo:
+Long-running AI tasks are processed in the background using FastAPI's built-in BackgroundTasks:
 
 ```python
-class RateLimiter:
-    USER_DAILY_LIMIT = 50
-    GLOBAL_DAILY_LIMIT = 300
-
-    def check_user_limit(self, client_ip: str) -> tuple[bool, int]:
-        key = f"ratelimit:user:{client_ip}:{date.today()}"
-        current = int(self.redis.get(key) or 0)
-        return current < self.USER_DAILY_LIMIT, self.USER_DAILY_LIMIT - current
+@router.post("/stage")
+async def stage_room(
+    background_tasks: BackgroundTasks,
+    image: UploadFile = File(...),
+    db: Session = Depends(get_db)
+):
+    # Create staging record
+    staging = Staging(id=staging_id, status="processing", ...)
+    db.add(staging)
+    db.commit()
+    
+    # Process in background
+    background_tasks.add_task(process_staging_background, str(staging_id), image_bytes)
+    
+    return {"id": str(staging_id), "status": "processing"}
 ```
 
-### 4. Optimistic UI with Smart Polling
+### 3. Smart Polling with TanStack Query
 
 TanStack Query handles server state with automatic polling that stops when processing completes:
 
@@ -171,11 +149,27 @@ const stagingStatusQuery = useQuery({
   enabled: !!stagingId,
   refetchInterval: (query) => {
     const status = query.state.data?.status;
-    // Stop polling when done
     if (status === 'completed' || status === 'failed') return false;
     return 2000; // Poll every 2 seconds while processing
   },
 });
+```
+
+### 4. Gemini AI Integration
+
+Direct integration with Google's Gemini API for image generation:
+
+```python
+class AIService:
+    def __init__(self):
+        genai.configure(api_key=settings.google_ai_api_key)
+        self.gemini_model = genai.GenerativeModel('gemini-3-pro-image-preview')
+    
+    async def stage_room_from_bytes(self, image_bytes: bytes):
+        image = Image.open(io.BytesIO(image_bytes))
+        response = self.gemini_model.generate_content([prompt, image])
+        # Extract generated image from response
+        ...
 ```
 
 ---
@@ -185,8 +179,8 @@ const stagingStatusQuery = useQuery({
 ### Prerequisites
 - Node.js 18+
 - Python 3.11+
-- Docker & Docker Compose
-- Google AI API key ([Get one here](https://makersuite.google.com/app/apikey))
+- Docker & Docker Compose (for local PostgreSQL)
+- Google AI API key ([Get one here](https://aistudio.google.com/app/apikey))
 
 ### Local Development
 
@@ -199,16 +193,30 @@ const stagingStatusQuery = useQuery({
 2. **Set up environment variables**
    ```bash
    cp .env.example .env
-   # Add your GOOGLE_AI_API_KEY to .env
+   # Edit .env and add your GOOGLE_AI_API_KEY
    ```
 
-3. **Start with Docker Compose**
+3. **Start PostgreSQL**
    ```bash
-   docker-compose up --build
+   docker-compose up -d postgres
    ```
 
-4. **Access the application**
-   - Frontend: http://localhost:3000
+4. **Start the backend**
+   ```bash
+   cd backend
+   pip install -r requirements.txt
+   uvicorn app.main:app --reload --port 8000
+   ```
+
+5. **Start the frontend**
+   ```bash
+   cd frontend
+   npm install
+   npm run dev
+   ```
+
+6. **Access the application**
+   - Frontend: http://localhost:5173
    - Backend API: http://localhost:8000
    - API Docs: http://localhost:8000/docs
 
@@ -220,10 +228,12 @@ const stagingStatusQuery = useQuery({
 |--------|----------|-------------|
 | `POST` | `/api/stage` | Upload image and start AI staging |
 | `GET` | `/api/stage/{id}` | Get staging status and results |
-| `POST` | `/api/stage-batch` | Batch upload (up to 10 images) |
-| `GET` | `/api/batch/{id}` | Get batch processing status |
 | `GET` | `/api/images/{filename}` | Serve processed images |
-| `GET` | `/api/health` | Health check with service status |
+| `GET` | `/api/health` | Simple health check |
+| `GET` | `/api/health/full` | Full health check with database status |
+| `POST` | `/auth/register` | Register new user |
+| `POST` | `/auth/login` | Login with email/password |
+| `GET` | `/auth/me` | Get current user info |
 
 ---
 
@@ -246,19 +256,19 @@ stagecraft-ai/
 │   │   ├── core/            # Config, database, auth utilities
 │   │   ├── models/          # SQLAlchemy models
 │   │   ├── routes/          # API route handlers
+│   │   │   ├── staging.py   # Image staging endpoints
+│   │   │   ├── auth.py      # Authentication endpoints
+│   │   │   ├── images.py    # Image serving endpoints
+│   │   │   └── health.py    # Health check endpoints
 │   │   ├── services/        # Business logic
-│   │   │   ├── ai_service.py       # Gemini AI integration
-│   │   │   ├── celery_app.py       # Task queue config
-│   │   │   ├── image_storage.py    # Redis image storage
-│   │   │   ├── rate_limiter.py     # Rate limiting
-│   │   │   └── tasks.py            # Celery tasks
+│   │   │   └── ai_service.py  # Gemini AI integration
 │   │   └── middleware/      # Error handlers
 │   ├── migrations/          # Alembic database migrations
 │   └── requirements.txt
 │
-├── docker-compose.yml       # Local multi-service setup
+├── docker-compose.yml       # Local development setup
 ├── railway.json             # Railway deployment config
-└── vercel.json              # Vercel deployment config
+└── BUILD_CHANGES.md         # Architecture change summary
 ```
 
 ---
@@ -266,28 +276,42 @@ stagecraft-ai/
 ## Deployment
 
 ### Backend (Railway)
-Auto-deploys from `main` branch. Four services:
-- **stagecraft-ai** - FastAPI application (port 8000)
-- **worker** - Celery worker processing `staging` queue
-- **PostgreSQL** - Managed database
-- **Redis** - Task broker + image storage
+
+Single service deployment:
+
+1. Connect GitHub repo to Railway
+2. Add PostgreSQL addon
+3. Set environment variables:
+   - `DATABASE_URL` (auto-provided by Railway PostgreSQL)
+   - `GOOGLE_AI_API_KEY`
+   - `SECRET_KEY`
+   - `JWT_SECRET_KEY`
+   - `CORS_ORIGINS` (your Vercel frontend URL)
 
 ### Frontend (Vercel)
-Auto-deploys from `main` branch:
-- Build: `npm run build`
-- Output: `dist`
-- Env: `VITE_API_URL` pointing to Railway backend
+
+1. Import from GitHub
+2. Set root directory to `frontend`
+3. Set environment variable:
+   - `VITE_API_URL` (your Railway backend URL)
 
 ---
 
-## Future Improvements
+## Environment Variables
 
-- [ ] WebSocket for real-time progress (replace polling)
-- [ ] Multiple staging styles (Modern, Traditional, Minimalist)
-- [ ] Before/after comparison slider component
-- [ ] Room type auto-detection
-- [ ] Image resolution upscaling
-- [ ] Stripe integration for premium tier
+### Backend (.env)
+```bash
+DATABASE_URL=postgresql://user:password@localhost:5432/stagecraft
+GOOGLE_AI_API_KEY=your_gemini_api_key
+SECRET_KEY=random_secret_key
+JWT_SECRET_KEY=another_random_key
+CORS_ORIGINS=http://localhost:5173,https://your-frontend.vercel.app
+```
+
+### Frontend (.env)
+```bash
+VITE_API_URL=http://localhost:8000
+```
 
 ---
 
