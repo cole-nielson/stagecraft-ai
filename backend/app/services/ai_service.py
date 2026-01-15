@@ -81,61 +81,65 @@ Generate a new image of this room with furniture added."""
             return False, None, None, f"Error during staging: {str(e)}"
     
     def _generate_staged_image_sync(self, image: Image.Image, prompt: str) -> Optional[Image.Image]:
-        """Generate staged image using Gemini - synchronous version."""
+        """Generate staged image using Gemini - following official docs pattern."""
         try:
             logger.info("Calling Gemini for image staging...")
             logger.info(f"Using model: {self.model_name}")
-            
-            # Convert PIL Image to bytes for the API
-            img_buffer = io.BytesIO()
-            image.save(img_buffer, format='JPEG', quality=95)
-            img_bytes = img_buffer.getvalue()
-            
-            # Create the content with image and text
-            contents = [
-                types.Part.from_bytes(data=img_bytes, mime_type="image/jpeg"),
-                types.Part.from_text(text=prompt)
-            ]
-            
+
             # Configure to return both text and image
             config = types.GenerateContentConfig(
                 response_modalities=["TEXT", "IMAGE"],
             )
-            
-            # Generate content using synchronous API
+
+            # Use official docs pattern: pass PIL Image directly with prompt
+            # Order: prompt first, then image (as shown in docs)
             response = self.client.models.generate_content(
                 model=self.model_name,
-                contents=contents,
+                contents=[prompt, image],
                 config=config
             )
-            
-            logger.info(f"Response received")
-            
-            if response and response.candidates:
+
+            logger.info(f"Response received: {type(response)}")
+            logger.info(f"Response has parts attr: {hasattr(response, 'parts')}")
+
+            # Use official docs pattern: response.parts directly
+            if hasattr(response, 'parts') and response.parts:
+                logger.info(f"Number of parts: {len(response.parts)}")
+                for i, part in enumerate(response.parts):
+                    logger.info(f"Part {i}: text={part.text is not None}, inline_data={part.inline_data is not None}")
+
+                    if part.inline_data is not None:
+                        logger.info(f"Found inline_data!")
+                        # Use as_image() method as shown in docs
+                        if hasattr(part, 'as_image'):
+                            result_image = part.as_image()
+                            logger.info("Successfully generated staged image using as_image()")
+                            return result_image
+                        else:
+                            # Fallback to direct data access
+                            image_data = part.inline_data.data
+                            result_image = Image.open(io.BytesIO(image_data))
+                            logger.info("Successfully generated staged image from inline_data")
+                            return result_image
+                    elif part.text:
+                        logger.info(f"Part {i} text: {part.text[:300]}...")
+
+            # Fallback: try candidates path
+            elif hasattr(response, 'candidates') and response.candidates:
+                logger.info("Trying candidates path...")
                 candidate = response.candidates[0]
-                logger.info(f"Candidate finish_reason: {getattr(candidate, 'finish_reason', 'unknown')}")
-                
                 if hasattr(candidate, 'content') and candidate.content:
                     if hasattr(candidate.content, 'parts'):
-                        logger.info(f"Number of parts: {len(candidate.content.parts)}")
-                        for i, part in enumerate(candidate.content.parts):
-                            logger.info(f"Part {i}: has text={part.text is not None}, has inline_data={part.inline_data is not None}")
-                            
-                            # Check for inline image data
+                        for part in candidate.content.parts:
                             if part.inline_data is not None:
-                                logger.info(f"Found inline_data with mime_type: {part.inline_data.mime_type}")
+                                if hasattr(part, 'as_image'):
+                                    return part.as_image()
                                 image_data = part.inline_data.data
-                                result_image = Image.open(io.BytesIO(image_data))
-                                logger.info("Successfully generated staged image from Gemini")
-                                return result_image
-                            elif part.text:
-                                logger.info(f"Part {i} has text: {part.text[:200]}...")
-            else:
-                logger.warning(f"No candidates in response")
-            
-            logger.warning("No image generated by Gemini - no inline_data found in response")
+                                return Image.open(io.BytesIO(image_data))
+
+            logger.warning("No image generated by Gemini - no inline_data found")
             return None
-            
+
         except Exception as e:
             logger.error(f"Gemini staging error: {e}")
             import traceback
