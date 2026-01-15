@@ -64,7 +64,7 @@ Generate a new image of this room with furniture added."""
                 return False, None, None, "AI service not configured"
 
             staged_image = self._generate_staged_image_sync(processed_image, prompt)
-            
+
             if staged_image:
                 # Convert back to bytes
                 staged_bytes = self._image_to_bytes(staged_image)
@@ -72,7 +72,7 @@ Generate a new image of this room with furniture added."""
                 logger.info(f"Staging completed in {processing_time}ms")
                 return True, staged_bytes, 0.85, None
             else:
-                return False, None, None, "AI failed to generate staged image"
+                return False, None, None, "AI failed to generate staged image. The image may have been rejected by content filters. Try a different photo."
 
         except Exception as e:
             logger.error(f"Error during staging: {str(e)}")
@@ -128,35 +128,50 @@ Generate a new image of this room with furniture added."""
             elif hasattr(response, 'candidates') and response.candidates:
                 logger.info("Using candidates path...")
                 candidate = response.candidates[0]
-                logger.info(f"Candidate finish_reason: {getattr(candidate, 'finish_reason', 'unknown')}")
+                finish_reason = getattr(candidate, 'finish_reason', 'unknown')
+                logger.info(f"Candidate finish_reason: {finish_reason}")
+
+                # Check for problematic finish reasons
+                finish_reason_str = str(finish_reason)
+                if 'OTHER' in finish_reason_str:
+                    logger.error("Gemini returned FinishReason.OTHER - image may have been rejected by safety filters")
+                elif 'SAFETY' in finish_reason_str:
+                    logger.error("Gemini blocked the request due to safety filters")
+                elif 'RECITATION' in finish_reason_str:
+                    logger.error("Gemini blocked due to recitation policy")
 
                 if hasattr(candidate, 'content') and candidate.content:
                     logger.info("Candidate has content")
                     if hasattr(candidate.content, 'parts'):
                         parts = candidate.content.parts
-                        logger.info(f"Found {len(parts)} parts in candidate")
-                        for i, part in enumerate(parts):
-                            has_text = part.text is not None
-                            has_inline = part.inline_data is not None
-                            logger.info(f"Candidate part {i}: text={has_text}, inline_data={has_inline}")
+                        if parts is None:
+                            logger.warning("candidate.content.parts is None - Gemini likely rejected the image")
+                        elif len(parts) == 0:
+                            logger.warning("candidate.content.parts is empty")
+                        else:
+                            logger.info(f"Found {len(parts)} parts in candidate")
+                            for i, part in enumerate(parts):
+                                has_text = part.text is not None
+                                has_inline = part.inline_data is not None
+                                logger.info(f"Candidate part {i}: text={has_text}, inline_data={has_inline}")
 
-                            if part.inline_data is not None:
-                                logger.info(f"Found inline_data! mime_type={getattr(part.inline_data, 'mime_type', 'unknown')}")
-                                if hasattr(part, 'as_image'):
-                                    logger.info("Using as_image() method")
-                                    result = part.as_image()
-                                    logger.info(f"as_image() returned: {type(result)}")
+                                if part.inline_data is not None:
+                                    logger.info(f"Found inline_data! mime_type={getattr(part.inline_data, 'mime_type', 'unknown')}")
+                                    if hasattr(part, 'as_image'):
+                                        logger.info("Using as_image() method")
+                                        result = part.as_image()
+                                        logger.info(f"as_image() returned: {type(result)}")
+                                        return result
+                                    logger.info("Using direct data access")
+                                    image_data = part.inline_data.data
+                                    logger.info(f"Data length: {len(image_data) if image_data else 0}")
+                                    result = Image.open(io.BytesIO(image_data))
+                                    logger.info(f"Opened image: {result.size}")
                                     return result
-                                logger.info("Using direct data access")
-                                image_data = part.inline_data.data
-                                logger.info(f"Data length: {len(image_data) if image_data else 0}")
-                                result = Image.open(io.BytesIO(image_data))
-                                logger.info(f"Opened image: {result.size}")
-                                return result
-                            elif part.text:
-                                logger.info(f"Part {i} has text: {part.text[:200]}...")
+                                elif part.text:
+                                    logger.info(f"Part {i} has text: {part.text[:200]}...")
                     else:
-                        logger.warning("Candidate content has no parts")
+                        logger.warning("Candidate content has no parts attr")
                 else:
                     logger.warning("Candidate has no content")
             else:
