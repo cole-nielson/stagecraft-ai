@@ -101,8 +101,8 @@ Generate a new image of this room with furniture added."""
                 response_modalities=["TEXT", "IMAGE"],
             )
             
-            # Generate content
-            response = self.client.models.generate_content(
+            # Generate content using async API
+            response = await self.client.aio.models.generate_content(
                 model=self.model_name,
                 contents=contents,
                 config=config
