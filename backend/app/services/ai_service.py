@@ -174,9 +174,31 @@ Generate a new image of this room with furniture added."""
                                         image_data = base64.b64decode(image_data)
                                         logger.info(f"Decoded length: {len(image_data)}")
 
-                                    result = Image.open(io.BytesIO(image_data))
-                                    logger.info(f"Opened image: {result.size}")
-                                    return result
+                                    # Debug: show first bytes to identify format
+                                    if image_data:
+                                        first_bytes = image_data[:20]
+                                        logger.info(f"First 20 bytes (hex): {first_bytes.hex()}")
+                                        logger.info(f"First 20 bytes (repr): {repr(first_bytes)}")
+
+                                    # Try to open the image
+                                    try:
+                                        result = Image.open(io.BytesIO(image_data))
+                                        logger.info(f"Opened image: {result.size}")
+                                        return result
+                                    except Exception as img_err:
+                                        logger.error(f"PIL failed to open: {img_err}")
+                                        # Maybe it's base64 even though it's bytes?
+                                        try:
+                                            logger.info("Trying base64 decode anyway...")
+                                            decoded = base64.b64decode(image_data)
+                                            logger.info(f"Base64 decoded length: {len(decoded)}")
+                                            logger.info(f"Decoded first bytes: {decoded[:20].hex()}")
+                                            result = Image.open(io.BytesIO(decoded))
+                                            logger.info(f"Opened after base64 decode: {result.size}")
+                                            return result
+                                        except Exception as decode_err:
+                                            logger.error(f"Base64 fallback also failed: {decode_err}")
+                                            raise img_err
                                 elif part.text:
                                     logger.info(f"Part {i} has text: {part.text[:200]}...")
                     else:
