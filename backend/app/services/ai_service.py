@@ -80,7 +80,8 @@ Add appropriate furniture that appeals to potential buyers while keeping the ori
             logger.info("Calling Gemini for image staging...")
             logger.info(f"Using model: {self.gemini_model.model_name if self.gemini_model else 'None'}")
             
-            response = self.gemini_model.generate_content([prompt, image])
+            # Use async version of generate_content
+            response = await self.gemini_model.generate_content_async([prompt, image])
             
             logger.info(f"Response received: {type(response)}")
             logger.info(f"Response text preview: {getattr(response, 'text', 'no text')[:200] if hasattr(response, 'text') else 'no text attr'}")
