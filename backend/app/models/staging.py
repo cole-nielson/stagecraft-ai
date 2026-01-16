@@ -47,22 +47,29 @@ class Staging(Base):
     project = relationship("Project", back_populates="stagings")
 
     def to_dict(self, include_image_data: bool = False):
+        import os
+        # Extract just the filename from the path for URL construction
+        original_filename = os.path.basename(self.original_image_path) if self.original_image_path else None
+        staged_filename = os.path.basename(self.staged_image_path) if self.staged_image_path else None
+
         result = {
             "id": str(self.id),
             "user_id": str(self.user_id) if self.user_id else None,
             "project_id": str(self.project_id) if self.project_id else None,
             "status": self.status,
             "original_image_path": self.original_image_path,
+            "original_image_url": f"/api/images/{original_filename}" if original_filename else None,
             "style": self.style,
             "room_type": self.room_type,
             "quality_mode": self.quality_mode,
             "staged_image_path": self.staged_image_path,
+            "staged_image_url": f"/api/images/{staged_filename}" if staged_filename else None,
             "processing_time_ms": self.processing_time_ms,
             "quality_score": float(self.quality_score) if self.quality_score else None,
             "architectural_integrity": self.architectural_integrity,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "completed_at": self.completed_at.isoformat() if self.completed_at else None,
-            "error_message": self.error_message,
+            "error": self.error_message,
             "property_name": self.property_name,
             "batch_id": str(self.batch_id) if self.batch_id else None,
         }
