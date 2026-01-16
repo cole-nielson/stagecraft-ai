@@ -1,0 +1,422 @@
+import React, { useState } from 'react';
+import { Container, Stack, Text, Card, Group, Badge, SimpleGrid, Image, Modal, Center, Button, Loader } from '@mantine/core';
+import { IconArrowLeft, IconDownload, IconPhoto } from '@tabler/icons-react';
+import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
+import { useUnsortedStagings } from '../hooks/useProjects';
+import { stagingApi } from '../services/api';
+import { Staging, User } from '../types';
+
+interface GalleryPageProps {
+  user: User | null;
+}
+
+const GalleryPage: React.FC<GalleryPageProps> = ({ user }) => {
+  const navigate = useNavigate();
+  const { data: stagings, isLoading } = useUnsortedStagings(!!user);
+  const [selectedStaging, setSelectedStaging] = useState<Staging | null>(null);
+
+  const handleDownload = async (imageUrl: string, filename: string) => {
+    try {
+      const response = await fetch(imageUrl);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error('Download failed:', error);
+    }
+  };
+
+  if (!user) {
+    return (
+      <Container size="lg" py="xl">
+        <Center py="xl">
+          <Stack align="center" gap="md">
+            <IconPhoto size={48} color="var(--warm-gray)" />
+            <Text size="lg" c="dimmed">Sign in to view your staging gallery</Text>
+            <Button variant="outline" onClick={() => navigate('/staging')}>
+              Go to Staging
+            </Button>
+          </Stack>
+        </Center>
+      </Container>
+    );
+  }
+
+  return (
+    <Container size="xl" py="xl">
+      <Stack gap="xl">
+        {/* Header */}
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
+        >
+          <Group justify="space-between" align="center">
+            <div>
+              <Group gap="md" align="center">
+                <Button
+                  variant="subtle"
+                  color="gray"
+                  leftSection={<IconArrowLeft size={18} />}
+                  onClick={() => navigate('/staging')}
+                >
+                  Back
+                </Button>
+                <div>
+                  <Text
+                    size="xl"
+                    fw={600}
+                    c="charcoal"
+                    style={{ fontFamily: 'var(--font-heading)' }}
+                  >
+                    My Stagings
+                  </Text>
+                  <Text size="sm" c="dimmed">
+                    {stagings?.length || 0} staging{(stagings?.length || 0) !== 1 ? 's' : ''} in your gallery
+                  </Text>
+                </div>
+              </Group>
+            </div>
+          </Group>
+        </motion.div>
+
+        {/* Loading State */}
+        {isLoading && (
+          <Center py="xl">
+            <Loader size="lg" color="var(--warm-gold)" />
+          </Center>
+        )}
+
+        {/* Empty State */}
+        {!isLoading && (!stagings || stagings.length === 0) && (
+          <Center py="xl">
+            <Stack align="center" gap="md">
+              <IconPhoto size={64} color="var(--warm-gray)" style={{ opacity: 0.5 }} />
+              <Text size="lg" c="dimmed">No stagings yet</Text>
+              <Text size="sm" c="dimmed">Upload a room photo to create your first staging</Text>
+              <Button
+                variant="filled"
+                style={{
+                  background: 'linear-gradient(135deg, var(--warm-gold) 0%, #D4AF37 100%)',
+                }}
+                onClick={() => navigate('/staging')}
+              >
+                Create Staging
+              </Button>
+            </Stack>
+          </Center>
+        )}
+
+        {/* Gallery Grid */}
+        {!isLoading && stagings && stagings.length > 0 && (
+          <SimpleGrid cols={{ base: 1, sm: 2, md: 3, lg: 4 }} spacing="lg">
+            {stagings.map((staging, index) => (
+              <motion.div
+                key={staging.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, delay: index * 0.05 }}
+              >
+                <GalleryCard
+                  staging={staging}
+                  onClick={() => setSelectedStaging(staging)}
+                />
+              </motion.div>
+            ))}
+          </SimpleGrid>
+        )}
+      </Stack>
+
+      {/* Staging Detail Modal */}
+      <Modal
+        opened={!!selectedStaging}
+        onClose={() => setSelectedStaging(null)}
+        size="90%"
+        centered
+        title={
+          <Text fw={600} size="lg">
+            {selectedStaging?.room_type || 'Room'} - {selectedStaging?.style || 'Staged'}
+          </Text>
+        }
+      >
+        {selectedStaging && (
+          <StagingDetail
+            staging={selectedStaging}
+            onDownload={handleDownload}
+          />
+        )}
+      </Modal>
+    </Container>
+  );
+};
+
+// Gallery Card Component
+interface GalleryCardProps {
+  staging: Staging;
+  onClick: () => void;
+}
+
+const GalleryCard: React.FC<GalleryCardProps> = ({ staging, onClick }) => {
+  // Use the staged image as thumbnail if available, otherwise original
+  const thumbnailUrl = staging.staged_image_url
+    ? stagingApi.buildImageUrl(staging.staged_image_url)
+    : staging.original_image_url
+      ? stagingApi.buildImageUrl(staging.original_image_url)
+      : undefined;
+
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    return date.toLocaleDateString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      year: date.getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined
+    });
+  };
+
+  return (
+    <Card
+      padding="sm"
+      radius="md"
+      style={{
+        cursor: 'pointer',
+        border: '1px solid var(--light-gray)',
+        transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+      }}
+      onClick={onClick}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.transform = 'translateY(-4px)';
+        e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.12)';
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.transform = 'translateY(0)';
+        e.currentTarget.style.boxShadow = 'none';
+      }}
+    >
+      <Stack gap="sm">
+        {/* Thumbnail */}
+        <div
+          style={{
+            aspectRatio: '4/3',
+            borderRadius: '8px',
+            overflow: 'hidden',
+            background: 'var(--light-gray)',
+          }}
+        >
+          {thumbnailUrl ? (
+            <Image
+              src={thumbnailUrl}
+              alt={staging.room_type || 'Staged room'}
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+              }}
+            />
+          ) : (
+            <Center style={{ height: '100%' }}>
+              <IconPhoto size={32} color="var(--warm-gray)" />
+            </Center>
+          )}
+        </div>
+
+        {/* Info */}
+        <div>
+          <Group justify="space-between" align="flex-start">
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <Text size="sm" fw={500} c="charcoal" lineClamp={1}>
+                {staging.room_type || 'Room'}
+              </Text>
+              {staging.style && (
+                <Text size="xs" c="dimmed" lineClamp={1}>
+                  {staging.style}
+                </Text>
+              )}
+            </div>
+            <Badge
+              size="xs"
+              color={
+                staging.status === 'completed' ? 'green' :
+                staging.status === 'processing' ? 'blue' : 'red'
+              }
+              variant="light"
+            >
+              {staging.status}
+            </Badge>
+          </Group>
+          <Text size="xs" c="dimmed" mt="xs">
+            {formatDate(staging.created_at)}
+          </Text>
+        </div>
+      </Stack>
+    </Card>
+  );
+};
+
+// Staging Detail Component (for modal)
+interface StagingDetailProps {
+  staging: Staging;
+  onDownload: (url: string, filename: string) => void;
+}
+
+const StagingDetail: React.FC<StagingDetailProps> = ({ staging, onDownload }) => {
+  const originalUrl = staging.original_image_url
+    ? stagingApi.buildImageUrl(staging.original_image_url)
+    : '';
+  const stagedUrl = staging.staged_image_url
+    ? stagingApi.buildImageUrl(staging.staged_image_url)
+    : '';
+
+  if (staging.status !== 'completed') {
+    return (
+      <Center py="xl">
+        <Stack align="center" gap="md">
+          <Badge
+            size="lg"
+            color={
+              staging.status === 'processing' ? 'blue' :
+              staging.status === 'failed' ? 'red' : 'gray'
+            }
+          >
+            {staging.status}
+          </Badge>
+          <Text c="dimmed">
+            {staging.status === 'processing'
+              ? 'This staging is still processing...'
+              : staging.status === 'failed'
+                ? staging.error || 'This staging failed to process'
+                : 'Staging pending'}
+          </Text>
+        </Stack>
+      </Center>
+    );
+  }
+
+  return (
+    <Stack gap="lg">
+      {/* Before & After Grid */}
+      <SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
+        {/* Original Image */}
+        <Card
+          padding="md"
+          radius="md"
+          style={{ border: '1px solid var(--light-gray)' }}
+        >
+          <Stack gap="sm">
+            <Text size="md" fw={600} c="charcoal" ta="center">
+              Before
+            </Text>
+            <div
+              style={{
+                borderRadius: '8px',
+                overflow: 'hidden',
+                border: '1px solid var(--light-gray)',
+              }}
+            >
+              {originalUrl ? (
+                <Image
+                  src={originalUrl}
+                  alt="Original room"
+                  style={{ width: '100%', height: 'auto' }}
+                  fit="contain"
+                />
+              ) : (
+                <Center py="xl">
+                  <Text c="dimmed">No original image</Text>
+                </Center>
+              )}
+            </div>
+          </Stack>
+        </Card>
+
+        {/* Staged Image */}
+        <Card
+          padding="md"
+          radius="md"
+          style={{ border: '2px solid var(--warm-gold)' }}
+        >
+          <Stack gap="sm">
+            <Group justify="center" gap="xs">
+              <Text size="md" fw={600} c="charcoal">
+                After
+              </Text>
+              {staging.architectural_integrity && (
+                <Badge color="green" variant="light" size="sm">
+                  Verified
+                </Badge>
+              )}
+            </Group>
+            <div
+              style={{
+                borderRadius: '8px',
+                overflow: 'hidden',
+                border: '1px solid var(--warm-gold)',
+              }}
+            >
+              {stagedUrl ? (
+                <Image
+                  src={stagedUrl}
+                  alt="Staged room"
+                  style={{ width: '100%', height: 'auto' }}
+                  fit="contain"
+                />
+              ) : (
+                <Center py="xl">
+                  <Text c="dimmed">No staged image</Text>
+                </Center>
+              )}
+            </div>
+          </Stack>
+        </Card>
+      </SimpleGrid>
+
+      {/* Metrics */}
+      {(staging.quality_score || staging.processing_time_ms) && (
+        <Card padding="md" radius="md" style={{ background: 'var(--off-white)' }}>
+          <Group justify="center" gap="xl">
+            {staging.quality_score && (
+              <div style={{ textAlign: 'center' }}>
+                <Text size="xl" fw={600} c="var(--warm-gold)">
+                  {Math.round(staging.quality_score * 100)}%
+                </Text>
+                <Text size="xs" c="dimmed">Quality Score</Text>
+              </div>
+            )}
+            {staging.processing_time_ms && (
+              <div style={{ textAlign: 'center' }}>
+                <Text size="xl" fw={600} c="var(--sage-navy)">
+                  {Math.round(staging.processing_time_ms / 1000)}s
+                </Text>
+                <Text size="xs" c="dimmed">Processing Time</Text>
+              </div>
+            )}
+          </Group>
+        </Card>
+      )}
+
+      {/* Download Button */}
+      {stagedUrl && (
+        <Group justify="center">
+          <Button
+            leftSection={<IconDownload size={18} />}
+            onClick={() => onDownload(stagedUrl, `staged-${staging.style || 'room'}-${Date.now()}.jpg`)}
+            style={{
+              background: 'linear-gradient(135deg, var(--warm-gold) 0%, #D4AF37 100%)',
+            }}
+          >
+            Download Staged Image
+          </Button>
+        </Group>
+      )}
+    </Stack>
+  );
+};
+
+export default GalleryPage;

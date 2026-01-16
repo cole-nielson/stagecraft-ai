@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { stagecraftTheme } from './styles/theme';
 import StagingPage from './pages/StagingPage';
+import GalleryPage from './pages/GalleryPage';
 import AuthModal from './components/AuthModal';
 import Sidebar from './components/Sidebar';
 import SimpleHeader from './components/SimpleHeader';
@@ -150,6 +151,30 @@ const AppShell: React.FC = () => {
                 />
               </main>
 
+              <Sidebar
+                opened={sidebarOpen}
+                onClose={() => setSidebarOpen(false)}
+                user={user}
+                onNewProject={handleNewProject}
+                currentProjectId={currentProjectId}
+                onSelectProject={handleSelectProject}
+              />
+            </div>
+          }
+        />
+        <Route
+          path="/gallery"
+          element={
+            <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+              <SimpleHeader
+                user={user}
+                onLogin={() => setAuthModalOpen(true)}
+                onLogout={handleLogout}
+                onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
+              />
+              <main style={{ flex: 1 }}>
+                <GalleryPage user={user} />
+              </main>
               <Sidebar
                 opened={sidebarOpen}
                 onClose={() => setSidebarOpen(false)}
