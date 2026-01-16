@@ -205,47 +205,73 @@ const Sidebar: React.FC<SidebarProps> = ({
                 </div>
               )}
 
-              {/* Unsorted Stagings Section */}
+              {/* Gallery Section */}
               {unsortedStagings && unsortedStagings.length > 0 && (
-                <>
-                  <Text size="xs" fw={600} c="dimmed" mt="md" mb="xs">
-                    UNSORTED STAGINGS
-                  </Text>
-                  <Card
-                    padding="sm"
-                    radius="md"
+                <Card
+                  padding="0"
+                  radius="md"
+                  mt="md"
+                  style={{
+                    background: 'var(--pure-white)',
+                    border: '1px solid var(--light-gray)',
+                    overflow: 'hidden',
+                  }}
+                >
+                  {/* Gallery Header - Clickable Tab */}
+                  <UnstyledButton
+                    onClick={() => {
+                      onClose();
+                      navigate('/gallery');
+                    }}
                     style={{
-                      background: 'var(--pure-white)',
-                      border: '1px solid var(--light-gray)',
+                      width: '100%',
+                      padding: '12px 16px',
+                      background: 'linear-gradient(135deg, rgba(201, 169, 97, 0.1) 0%, rgba(201, 169, 97, 0.05) 100%)',
+                      borderBottom: '1px solid var(--light-gray)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
                     }}
                   >
-                    <Stack gap="xs">
-                      {unsortedStagings.slice(0, 5).map((staging) => (
-                        <StagingItem
-                          key={staging.id}
-                          staging={staging}
-                          formatTime={formatTime}
-                          onClick={() => setSelectedStaging(staging)}
-                        />
-                      ))}
-                      {unsortedStagings.length > 5 && (
-                        <Text
-                          size="xs"
-                          c="warmGold"
-                          ta="center"
-                          fw={500}
-                          style={{ cursor: 'pointer' }}
-                          onClick={() => {
-                            onClose();
-                            navigate('/gallery');
-                          }}
-                        >
-                          View all {unsortedStagings.length} stagings
-                        </Text>
-                      )}
-                    </Stack>
-                  </Card>
-                </>
+                    <Group gap="xs">
+                      <IconPhoto size={18} color="var(--warm-gold)" />
+                      <Text size="sm" fw={600} c="charcoal">
+                        Gallery
+                      </Text>
+                      <Badge size="sm" color="gray" variant="light">
+                        {unsortedStagings.length}
+                      </Badge>
+                    </Group>
+                    <IconChevronRight size={16} color="var(--warm-gold)" />
+                  </UnstyledButton>
+
+                  {/* Recent Stagings Preview */}
+                  <Stack gap="xs" p="sm">
+                    {unsortedStagings.slice(0, 3).map((staging) => (
+                      <StagingItem
+                        key={staging.id}
+                        staging={staging}
+                        formatTime={formatTime}
+                        onClick={() => setSelectedStaging(staging)}
+                      />
+                    ))}
+
+                    {/* View All Button */}
+                    <Button
+                      variant="light"
+                      color="yellow"
+                      size="xs"
+                      fullWidth
+                      onClick={() => {
+                        onClose();
+                        navigate('/gallery');
+                      }}
+                      rightSection={<IconChevronRight size={14} />}
+                    >
+                      View All Stagings
+                    </Button>
+                  </Stack>
+                </Card>
               )}
             </Stack>
           )}
