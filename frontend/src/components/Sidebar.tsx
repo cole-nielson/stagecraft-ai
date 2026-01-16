@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { Drawer, Stack, Text, Button, Card, Group, ActionIcon, Badge, ScrollArea, UnstyledButton, Menu, Loader, Center } from '@mantine/core';
+import { Drawer, Stack, Text, Button, Card, Group, ActionIcon, Badge, ScrollArea, UnstyledButton, Menu, Loader, Center, Modal, SimpleGrid, Image } from '@mantine/core';
 import { IconPlus, IconTrash, IconEdit, IconDotsVertical, IconX, IconChevronRight, IconInbox } from '@tabler/icons-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useProjects, useUnsortedStagings, useDeleteProject } from '../hooks/useProjects';
 import { User, Project, Staging } from '../types';
 import { stagingApi } from '../services/api';
+import ResultsDisplay from './ResultsDisplay';
 
 interface SidebarProps {
   opened: boolean;
@@ -24,6 +25,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   onSelectProject
 }) => {
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
+  const [selectedStaging, setSelectedStaging] = useState<Staging | null>(null);
+  const [galleryOpen, setGalleryOpen] = useState(false);
 
   // Fetch projects and unsorted stagings only when user is logged in
   const { data: projects, isLoading: projectsLoading } = useProjects(!!user);
@@ -222,10 +225,17 @@ const Sidebar: React.FC<SidebarProps> = ({
                           key={staging.id}
                           staging={staging}
                           formatTime={formatTime}
+                          onClick={() => setSelectedStaging(staging)}
                         />
                       ))}
                       {unsortedStagings.length > 5 && (
-                        <Text size="xs" c="dimmed" ta="center">
+                        <Text
+                          size="xs"
+                          c="dimmed"
+                          ta="center"
+                          style={{ cursor: 'pointer' }}
+                          onClick={() => setGalleryOpen(true)}
+                        >
                           +{unsortedStagings.length - 5} more
                         </Text>
                       )}
@@ -237,7 +247,129 @@ const Sidebar: React.FC<SidebarProps> = ({
           )}
         </ScrollArea>
       </div>
+
+      {/* Staging Detail Modal */}
+      <Modal
+        opened={!!selectedStaging}
+        onClose={() => setSelectedStaging(null)}
+        size="xl"
+        centered
+        title={selectedStaging ? `${selectedStaging.room_type || 'Room'} - ${selectedStaging.style || 'Staged'}` : ''}
+      >
+        {selectedStaging && selectedStaging.status === 'completed' ? (
+          <ResultsDisplay staging={selectedStaging} />
+        ) : selectedStaging ? (
+          <Stack align="center" py="xl">
+            <Badge
+              size="lg"
+              color={
+                selectedStaging.status === 'processing' ? 'blue' :
+                selectedStaging.status === 'failed' ? 'red' : 'gray'
+              }
+            >
+              {selectedStaging.status}
+            </Badge>
+            <Text c="dimmed">
+              {selectedStaging.status === 'processing'
+                ? 'This staging is still processing...'
+                : selectedStaging.status === 'failed'
+                  ? 'This staging failed to process'
+                  : 'Staging pending'}
+            </Text>
+          </Stack>
+        ) : null}
+      </Modal>
+
+      {/* Gallery Modal for All Unsorted Stagings */}
+      <Modal
+        opened={galleryOpen}
+        onClose={() => setGalleryOpen(false)}
+        size="xl"
+        centered
+        title="All Unsorted Stagings"
+      >
+        <SimpleGrid cols={{ base: 2, sm: 3 }} spacing="md">
+          {unsortedStagings?.map((staging) => (
+            <StagingCard
+              key={staging.id}
+              staging={staging}
+              onClick={() => {
+                setGalleryOpen(false);
+                setSelectedStaging(staging);
+              }}
+            />
+          ))}
+        </SimpleGrid>
+      </Modal>
     </Drawer>
+  );
+};
+
+// Staging Card Component for Gallery
+interface StagingCardProps {
+  staging: Staging;
+  onClick: () => void;
+}
+
+const StagingCard: React.FC<StagingCardProps> = ({ staging, onClick }) => {
+  const imageUrl = staging.original_image_url
+    ? stagingApi.buildImageUrl(staging.original_image_url)
+    : undefined;
+
+  return (
+    <Card
+      padding="xs"
+      radius="md"
+      style={{
+        cursor: 'pointer',
+        border: '1px solid var(--light-gray)',
+        transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+      }}
+      onClick={onClick}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.transform = 'translateY(-2px)';
+        e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)';
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.transform = 'translateY(0)';
+        e.currentTarget.style.boxShadow = 'none';
+      }}
+    >
+      <Stack gap="xs">
+        <div
+          style={{
+            aspectRatio: '1',
+            borderRadius: '6px',
+            background: imageUrl
+              ? `url(${imageUrl}) center/cover`
+              : 'var(--light-gray)',
+            overflow: 'hidden',
+          }}
+        />
+        <div>
+          <Text size="sm" fw={500} c="charcoal" lineClamp={1}>
+            {staging.room_type || 'Room'}
+          </Text>
+          <Group gap="xs" mt="2px">
+            <Badge
+              size="xs"
+              color={
+                staging.status === 'completed' ? 'green' :
+                staging.status === 'processing' ? 'blue' : 'red'
+              }
+              variant="light"
+            >
+              {staging.status}
+            </Badge>
+            {staging.style && (
+              <Text size="xs" c="dimmed" lineClamp={1}>
+                {staging.style}
+              </Text>
+            )}
+          </Group>
+        </div>
+      </Stack>
+    </Card>
   );
 };
 
@@ -383,9 +515,10 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
 interface StagingItemProps {
   staging: Staging;
   formatTime: (date?: string) => string;
+  onClick?: () => void;
 }
 
-const StagingItem: React.FC<StagingItemProps> = ({ staging, formatTime }) => {
+const StagingItem: React.FC<StagingItemProps> = ({ staging, formatTime, onClick }) => {
   const imageUrl = staging.original_image_url
     ? stagingApi.buildImageUrl(staging.original_image_url)
     : undefined;
@@ -397,7 +530,12 @@ const StagingItem: React.FC<StagingItemProps> = ({ staging, formatTime }) => {
         background: 'rgba(201, 169, 97, 0.05)',
         borderRadius: '6px',
         border: '1px solid rgba(201, 169, 97, 0.1)',
+        cursor: onClick ? 'pointer' : 'default',
+        transition: 'background 0.2s ease',
       }}
+      onClick={onClick}
+      onMouseEnter={(e) => onClick && (e.currentTarget.style.background = 'rgba(201, 169, 97, 0.1)')}
+      onMouseLeave={(e) => onClick && (e.currentTarget.style.background = 'rgba(201, 169, 97, 0.05)')}
     >
       <Group gap="xs" align="flex-start">
         <div
