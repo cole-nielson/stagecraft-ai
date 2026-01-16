@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
-import { Container, Stack, Text, Paper, Alert, Image, Card, Group, Badge, ActionIcon } from '@mantine/core';
+import { Container, Stack, Text, Paper, Alert, Image, Card, Group, Badge, ActionIcon, Modal, SimpleGrid, Center, Button, ScrollArea } from '@mantine/core';
 import { FileWithPath } from '@mantine/dropzone';
-import { IconAlertCircle, IconX, IconFolder } from '@tabler/icons-react';
+import { IconAlertCircle, IconX, IconFolder, IconPhoto, IconDownload, IconChevronRight } from '@tabler/icons-react';
 import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import PremiumUpload from '../components/PremiumUpload';
 import ProcessingStates from '../components/ProcessingStates';
 import ResultsDisplay from '../components/ResultsDisplay';
 import { useStaging } from '../hooks/useStaging';
-import { useProjects } from '../hooks/useProjects';
-import type { User } from '../types';
+import { useProjects, useProject } from '../hooks/useProjects';
+import { stagingApi } from '../services/api';
+import type { User, Staging } from '../types';
 
 interface StagingPageProps {
   onGenerationRequest: (imageFile: File) => boolean;
@@ -18,9 +20,11 @@ interface StagingPageProps {
 }
 
 const StagingPage: React.FC<StagingPageProps> = ({ onGenerationRequest, user, currentProjectId, onClearProject }) => {
+  const navigate = useNavigate();
   const [uploadedFile, setUploadedFile] = useState<FileWithPath | null>(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
   const [imageContainerHeight, setImageContainerHeight] = useState<number>(300);
+  const [selectedStaging, setSelectedStaging] = useState<Staging | null>(null);
 
   const {
     startStaging,
@@ -35,6 +39,9 @@ const StagingPage: React.FC<StagingPageProps> = ({ onGenerationRequest, user, cu
   // Fetch projects to get the current project name
   const { data: projects } = useProjects(!!user);
   const currentProject = projects?.find(p => p.id === currentProjectId);
+
+  // Fetch project details with stagings when a project is selected
+  const { data: projectWithStagings } = useProject(currentProjectId || null);
   
 
   const handleFileUpload = (files: FileWithPath[]) => {
@@ -94,6 +101,24 @@ const StagingPage: React.FC<StagingPageProps> = ({ onGenerationRequest, user, cu
   };
 
   const canStartStaging = uploadedFile && !isStaging;
+
+  // Download handler for staging images
+  const handleDownload = async (imageUrl: string, filename: string) => {
+    try {
+      const response = await fetch(imageUrl);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error('Download failed:', error);
+    }
+  };
 
   return (
     <Container size="xl" py="xl">
@@ -413,8 +438,217 @@ const StagingPage: React.FC<StagingPageProps> = ({ onGenerationRequest, user, cu
           </motion.div>
         )}
 
+        {/* Project Stagings Section - Show when project has stagings */}
+        {currentProject && projectWithStagings?.stagings && projectWithStagings.stagings.length > 0 && !isStaging && !isCompleted && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.3 }}
+          >
+            <div
+              style={{
+                maxWidth: '800px',
+                margin: '0 auto',
+                paddingTop: 'var(--space-xl)',
+              }}
+            >
+              {/* Section header */}
+              <Group justify="space-between" align="center" mb="md">
+                <Text size="sm" c="dimmed" fw={500}>
+                  Recent in this project
+                </Text>
+                {projectWithStagings.stagings.length > 4 && (
+                  <Button
+                    variant="subtle"
+                    color="gray"
+                    size="xs"
+                    rightSection={<IconChevronRight size={14} />}
+                    onClick={() => navigate(`/gallery?project=${currentProjectId}`)}
+                  >
+                    View all
+                  </Button>
+                )}
+              </Group>
+
+              {/* Horizontal scrolling thumbnails */}
+              <ScrollArea type="hover" offsetScrollbars>
+                <Group gap="md" wrap="nowrap" pb="xs">
+                  {projectWithStagings.stagings.slice(0, 6).map((stg) => {
+                    const thumbnailUrl = stg.staged_image_url
+                      ? stagingApi.buildImageUrl(stg.staged_image_url)
+                      : stg.original_image_url
+                        ? stagingApi.buildImageUrl(stg.original_image_url)
+                        : undefined;
+
+                    return (
+                      <div
+                        key={stg.id}
+                        onClick={() => setSelectedStaging(stg)}
+                        style={{
+                          width: '120px',
+                          flexShrink: 0,
+                          cursor: 'pointer',
+                          borderRadius: '8px',
+                          overflow: 'hidden',
+                          border: '1px solid var(--light-gray)',
+                          transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.transform = 'translateY(-2px)';
+                          e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.transform = 'translateY(0)';
+                          e.currentTarget.style.boxShadow = 'none';
+                        }}
+                      >
+                        <div
+                          style={{
+                            aspectRatio: '4/3',
+                            background: 'var(--light-gray)',
+                          }}
+                        >
+                          {thumbnailUrl ? (
+                            <Image
+                              src={thumbnailUrl}
+                              alt={stg.room_type || 'Staged room'}
+                              style={{
+                                width: '100%',
+                                height: '100%',
+                                objectFit: 'cover',
+                              }}
+                            />
+                          ) : (
+                            <Center style={{ height: '100%' }}>
+                              <IconPhoto size={24} color="var(--warm-gray)" />
+                            </Center>
+                          )}
+                        </div>
+                        <div style={{ padding: '6px 8px', background: 'var(--pure-white)' }}>
+                          <Text size="xs" c="charcoal" lineClamp={1} fw={500}>
+                            {stg.room_type || 'Room'}
+                          </Text>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </Group>
+              </ScrollArea>
+            </div>
+          </motion.div>
+        )}
+
       </Stack>
+
+      {/* Staging Detail Modal */}
+      <Modal
+        opened={!!selectedStaging}
+        onClose={() => setSelectedStaging(null)}
+        size="90%"
+        centered
+        title={
+          <Text fw={600} size="lg">
+            {selectedStaging?.room_type || 'Room'} - {selectedStaging?.style || 'Staged'}
+          </Text>
+        }
+      >
+        {selectedStaging && (
+          <StagingDetailModal staging={selectedStaging} onDownload={handleDownload} />
+        )}
+      </Modal>
     </Container>
+  );
+};
+
+// Staging Detail Modal Content
+interface StagingDetailModalProps {
+  staging: Staging;
+  onDownload: (url: string, filename: string) => void;
+}
+
+const StagingDetailModal: React.FC<StagingDetailModalProps> = ({ staging, onDownload }) => {
+  const originalUrl = staging.original_image_url
+    ? stagingApi.buildImageUrl(staging.original_image_url)
+    : '';
+  const stagedUrl = staging.staged_image_url
+    ? stagingApi.buildImageUrl(staging.staged_image_url)
+    : '';
+
+  if (staging.status !== 'completed') {
+    return (
+      <Center py="xl">
+        <Stack align="center" gap="md">
+          <Badge
+            size="lg"
+            color={
+              staging.status === 'processing' ? 'blue' :
+              staging.status === 'failed' ? 'red' : 'gray'
+            }
+          >
+            {staging.status}
+          </Badge>
+          <Text c="dimmed">
+            {staging.status === 'processing'
+              ? 'This staging is still processing...'
+              : staging.status === 'failed'
+                ? staging.error || 'This staging failed to process'
+                : 'Staging pending'}
+          </Text>
+        </Stack>
+      </Center>
+    );
+  }
+
+  return (
+    <Stack gap="lg">
+      <SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
+        {/* Original Image */}
+        <Card padding="md" radius="md" style={{ border: '1px solid var(--light-gray)' }}>
+          <Stack gap="sm">
+            <Text size="md" fw={600} c="charcoal" ta="center">Before</Text>
+            <div style={{ borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--light-gray)' }}>
+              {originalUrl ? (
+                <Image src={originalUrl} alt="Original room" style={{ width: '100%', height: 'auto' }} fit="contain" />
+              ) : (
+                <Center py="xl"><Text c="dimmed">No original image</Text></Center>
+              )}
+            </div>
+          </Stack>
+        </Card>
+
+        {/* Staged Image */}
+        <Card padding="md" radius="md" style={{ border: '2px solid var(--warm-gold)' }}>
+          <Stack gap="sm">
+            <Group justify="center" gap="xs">
+              <Text size="md" fw={600} c="charcoal">After</Text>
+              {staging.architectural_integrity && (
+                <Badge color="green" variant="light" size="sm">Verified</Badge>
+              )}
+            </Group>
+            <div style={{ borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--warm-gold)' }}>
+              {stagedUrl ? (
+                <Image src={stagedUrl} alt="Staged room" style={{ width: '100%', height: 'auto' }} fit="contain" />
+              ) : (
+                <Center py="xl"><Text c="dimmed">No staged image</Text></Center>
+              )}
+            </div>
+          </Stack>
+        </Card>
+      </SimpleGrid>
+
+      {/* Download Button */}
+      {stagedUrl && (
+        <Group justify="center">
+          <Button
+            leftSection={<IconDownload size={18} />}
+            onClick={() => onDownload(stagedUrl, `staged-${staging.style || 'room'}-${Date.now()}.jpg`)}
+            style={{ background: 'linear-gradient(135deg, var(--warm-gold) 0%, #D4AF37 100%)' }}
+          >
+            Download Staged Image
+          </Button>
+        </Group>
+      )}
+    </Stack>
   );
 };
 
