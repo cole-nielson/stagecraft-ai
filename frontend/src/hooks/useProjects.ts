@@ -110,3 +110,20 @@ export function useDeleteProject() {
     },
   });
 }
+
+// Hook to move a staging to a different project
+export function useMoveStaging() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ stagingId, projectId }: { stagingId: string; projectId: string | null }) => {
+      return projectsApi.moveStagingToProject(stagingId, projectId);
+    },
+    onSuccess: () => {
+      // Invalidate relevant queries
+      queryClient.invalidateQueries({ queryKey: projectKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: projectKeys.unsorted() });
+      queryClient.invalidateQueries({ queryKey: projectKeys.details() });
+    },
+  });
+}

@@ -44,6 +44,7 @@ export interface StagingRequest {
   image: File;
   room_type?: string;
   quality_mode?: string;
+  project_id?: string;
 }
 
 export interface UploadProgress {

@@ -1,34 +1,40 @@
 import React, { useState } from 'react';
-import { Container, Stack, Text, Paper, Alert, Image, Card } from '@mantine/core';
+import { Container, Stack, Text, Paper, Alert, Image, Card, Group, Badge, ActionIcon } from '@mantine/core';
 import { FileWithPath } from '@mantine/dropzone';
-import { IconAlertCircle } from '@tabler/icons-react';
+import { IconAlertCircle, IconX, IconFolder } from '@tabler/icons-react';
 import { motion } from 'framer-motion';
 import PremiumUpload from '../components/PremiumUpload';
 import ProcessingStates from '../components/ProcessingStates';
 import ResultsDisplay from '../components/ResultsDisplay';
 import { useStaging } from '../hooks/useStaging';
+import { useProjects } from '../hooks/useProjects';
 import type { User } from '../types';
 
 interface StagingPageProps {
   onGenerationRequest: (imageFile: File) => boolean;
   user: User | null;
   currentProjectId?: string;
+  onClearProject?: () => void;
 }
 
-const StagingPage: React.FC<StagingPageProps> = ({ onGenerationRequest, user, currentProjectId }) => {
+const StagingPage: React.FC<StagingPageProps> = ({ onGenerationRequest, user, currentProjectId, onClearProject }) => {
   const [uploadedFile, setUploadedFile] = useState<FileWithPath | null>(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
   const [imageContainerHeight, setImageContainerHeight] = useState<number>(300);
-  
-  const { 
-    startStaging, 
+
+  const {
+    startStaging,
     resetStaging,
-    staging, 
-    isStaging, 
-    isCompleted, 
+    staging,
+    isStaging,
+    isCompleted,
     isFailed,
-    error 
+    error
   } = useStaging();
+
+  // Fetch projects to get the current project name
+  const { data: projects } = useProjects(!!user);
+  const currentProject = projects?.find(p => p.id === currentProjectId);
   
 
   const handleFileUpload = (files: FileWithPath[]) => {
@@ -66,6 +72,7 @@ const StagingPage: React.FC<StagingPageProps> = ({ onGenerationRequest, user, cu
       await startStaging({
         image: uploadedFile,
         quality_mode: 'premium',
+        project_id: currentProjectId,
       });
     } catch (error) {
       console.error('Failed to start staging:', error);
@@ -113,6 +120,54 @@ const StagingPage: React.FC<StagingPageProps> = ({ onGenerationRequest, user, cu
             </Text>
           </div>
         </motion.div>
+
+        {/* Active Project Banner */}
+        {currentProject && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            <Paper
+              p="sm"
+              radius="md"
+              style={{
+                background: 'linear-gradient(135deg, rgba(201, 169, 97, 0.1) 0%, rgba(201, 169, 97, 0.05) 100%)',
+                border: '1px solid rgba(201, 169, 97, 0.3)',
+                maxWidth: '600px',
+                margin: '0 auto',
+              }}
+            >
+              <Group justify="space-between" align="center">
+                <Group gap="sm">
+                  <IconFolder size={18} color="var(--warm-gold)" />
+                  <div>
+                    <Text size="xs" c="dimmed">Staging for project:</Text>
+                    <Text size="sm" fw={600} c="charcoal">
+                      {currentProject.name}
+                    </Text>
+                  </div>
+                </Group>
+                <Group gap="xs">
+                  <Badge size="sm" color="yellow" variant="light">
+                    {currentProject.staging_count} staging{currentProject.staging_count !== 1 ? 's' : ''}
+                  </Badge>
+                  {onClearProject && (
+                    <ActionIcon
+                      variant="subtle"
+                      color="gray"
+                      size="sm"
+                      onClick={onClearProject}
+                      title="Clear project selection"
+                    >
+                      <IconX size={14} />
+                    </ActionIcon>
+                  )}
+                </Group>
+              </Group>
+            </Paper>
+          </motion.div>
+        )}
 
         {/* Error Display */}
         {(error || isFailed) && (

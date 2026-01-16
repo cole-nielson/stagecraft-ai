@@ -50,6 +50,9 @@ export const stagingApi = {
     if (request.quality_mode) {
       formData.append('quality_mode', request.quality_mode);
     }
+    if (request.project_id) {
+      formData.append('project_id', request.project_id);
+    }
 
     const response = await api.post('/api/stage', formData, {
       headers: {
@@ -173,6 +176,12 @@ export const projectsApi = {
   // Get unsorted stagings (not in any project)
   getUnsortedStagings: async (limit?: number): Promise<{ stagings: Staging[] }> => {
     const response = await api.get('/api/stagings/unsorted', { params: { limit } });
+    return response.data;
+  },
+
+  // Move a staging to a different project (or remove from project)
+  moveStagingToProject: async (stagingId: string, projectId: string | null): Promise<Staging> => {
+    const response = await api.patch(`/api/stagings/${stagingId}/project`, { project_id: projectId });
     return response.data;
   },
 };

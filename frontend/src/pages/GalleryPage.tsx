@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { Container, Stack, Text, Card, Group, Badge, SimpleGrid, Image, Modal, Center, Button, Loader } from '@mantine/core';
-import { IconArrowLeft, IconDownload, IconPhoto } from '@tabler/icons-react';
+import { Container, Stack, Text, Card, Group, Badge, SimpleGrid, Image, Modal, Center, Button, Loader, Select, Menu } from '@mantine/core';
+import { IconArrowLeft, IconDownload, IconPhoto, IconFilter, IconChevronDown, IconFolder, IconInbox, IconDotsVertical, IconFolderPlus, IconFolderOff } from '@tabler/icons-react';
 import { motion } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
-import { useUnsortedStagings } from '../hooks/useProjects';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useUnsortedStagings, useProjects, useProject, useMoveStaging } from '../hooks/useProjects';
 import { stagingApi } from '../services/api';
 import { Staging, User } from '../types';
 
@@ -13,8 +13,42 @@ interface GalleryPageProps {
 
 const GalleryPage: React.FC<GalleryPageProps> = ({ user }) => {
   const navigate = useNavigate();
-  const { data: stagings, isLoading } = useUnsortedStagings(!!user);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const projectId = searchParams.get('project');
   const [selectedStaging, setSelectedStaging] = useState<Staging | null>(null);
+  const [moveStagingTarget, setMoveStagingTarget] = useState<Staging | null>(null);
+
+  // Fetch all projects for the filter dropdown
+  const { data: projects } = useProjects(!!user);
+
+  // Fetch project details when filtering by project
+  const { data: projectData, isLoading: projectLoading } = useProject(projectId);
+
+  // Fetch unsorted stagings when no project filter
+  const { data: unsortedStagings, isLoading: unsortedLoading } = useUnsortedStagings(!!user && !projectId);
+
+  // Move staging mutation
+  const moveStagingMutation = useMoveStaging();
+
+  // Determine which stagings to show
+  const stagings = projectId ? projectData?.stagings : unsortedStagings;
+  const isLoading = projectId ? projectLoading : unsortedLoading;
+
+  // Handle filter change
+  const handleFilterChange = (value: string | null) => {
+    if (value === 'unsorted' || !value) {
+      searchParams.delete('project');
+      setSearchParams(searchParams);
+    } else {
+      setSearchParams({ project: value });
+    }
+  };
+
+  // Handle moving a staging to a project
+  const handleMoveStaging = async (stagingId: string, targetProjectId: string | null) => {
+    await moveStagingMutation.mutateAsync({ stagingId, projectId: targetProjectId });
+    setMoveStagingTarget(null);
+  };
 
   const handleDownload = async (imageUrl: string, filename: string) => {
     try {
@@ -58,7 +92,7 @@ const GalleryPage: React.FC<GalleryPageProps> = ({ user }) => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
         >
-          <Group justify="space-between" align="center">
+          <Group justify="space-between" align="flex-start">
             <div>
               <Group gap="md" align="center">
                 <Button
@@ -76,14 +110,63 @@ const GalleryPage: React.FC<GalleryPageProps> = ({ user }) => {
                     c="charcoal"
                     style={{ fontFamily: 'var(--font-heading)' }}
                   >
-                    My Stagings
+                    {projectData ? projectData.name : 'My Stagings'}
                   </Text>
                   <Text size="sm" c="dimmed">
-                    {stagings?.length || 0} staging{(stagings?.length || 0) !== 1 ? 's' : ''} in your gallery
+                    {stagings?.length || 0} staging{(stagings?.length || 0) !== 1 ? 's' : ''}{' '}
+                    {projectData ? 'in this project' : 'in your gallery'}
                   </Text>
                 </div>
               </Group>
             </div>
+
+            {/* Filter Dropdown */}
+            {projects && projects.length > 0 && (
+              <Menu shadow="md" width={220}>
+                <Menu.Target>
+                  <Button
+                    variant="light"
+                    color="gray"
+                    rightSection={<IconChevronDown size={16} />}
+                    leftSection={<IconFilter size={16} />}
+                  >
+                    {projectData ? projectData.name : 'Unsorted'}
+                  </Button>
+                </Menu.Target>
+
+                <Menu.Dropdown>
+                  <Menu.Label>Filter by</Menu.Label>
+                  <Menu.Item
+                    leftSection={<IconInbox size={16} />}
+                    onClick={() => handleFilterChange('unsorted')}
+                    style={{
+                      background: !projectId ? 'rgba(201, 169, 97, 0.1)' : undefined,
+                    }}
+                  >
+                    Unsorted Stagings
+                  </Menu.Item>
+                  <Menu.Divider />
+                  <Menu.Label>Projects</Menu.Label>
+                  {projects.map((project) => (
+                    <Menu.Item
+                      key={project.id}
+                      leftSection={<IconFolder size={16} />}
+                      onClick={() => handleFilterChange(project.id)}
+                      style={{
+                        background: projectId === project.id ? 'rgba(201, 169, 97, 0.1)' : undefined,
+                      }}
+                    >
+                      <Group justify="space-between" w="100%">
+                        <Text size="sm" lineClamp={1}>{project.name}</Text>
+                        <Badge size="xs" color="gray" variant="light">
+                          {project.staging_count}
+                        </Badge>
+                      </Group>
+                    </Menu.Item>
+                  ))}
+                </Menu.Dropdown>
+              </Menu>
+            )}
           </Group>
         </motion.div>
 
@@ -127,6 +210,7 @@ const GalleryPage: React.FC<GalleryPageProps> = ({ user }) => {
                 <GalleryCard
                   staging={staging}
                   onClick={() => setSelectedStaging(staging)}
+                  onMoveToProject={() => setMoveStagingTarget(staging)}
                 />
               </motion.div>
             ))}
@@ -153,6 +237,74 @@ const GalleryPage: React.FC<GalleryPageProps> = ({ user }) => {
           />
         )}
       </Modal>
+
+      {/* Move to Project Modal */}
+      <Modal
+        opened={!!moveStagingTarget}
+        onClose={() => setMoveStagingTarget(null)}
+        size="sm"
+        centered
+        title={
+          <Text fw={600} size="lg">
+            Move to Project
+          </Text>
+        }
+      >
+        {moveStagingTarget && (
+          <Stack gap="md">
+            <Text size="sm" c="dimmed">
+              Select a project to move this staging to:
+            </Text>
+
+            {/* Unsorted option */}
+            <Button
+              variant="light"
+              color="gray"
+              fullWidth
+              justify="flex-start"
+              leftSection={<IconInbox size={18} />}
+              onClick={() => handleMoveStaging(moveStagingTarget.id, null)}
+              disabled={moveStagingMutation.isPending}
+            >
+              Unsorted (No Project)
+            </Button>
+
+            {/* Project options */}
+            {projects && projects.length > 0 && (
+              <>
+                <Text size="xs" c="dimmed" fw={500} mt="xs">
+                  Projects
+                </Text>
+                {projects.map((project) => (
+                  <Button
+                    key={project.id}
+                    variant="light"
+                    color="yellow"
+                    fullWidth
+                    justify="flex-start"
+                    leftSection={<IconFolder size={18} />}
+                    onClick={() => handleMoveStaging(moveStagingTarget.id, project.id)}
+                    disabled={moveStagingMutation.isPending}
+                  >
+                    <Group justify="space-between" w="100%" style={{ flex: 1 }}>
+                      <Text size="sm" lineClamp={1}>{project.name}</Text>
+                      <Badge size="xs" color="gray" variant="light">
+                        {project.staging_count}
+                      </Badge>
+                    </Group>
+                  </Button>
+                ))}
+              </>
+            )}
+
+            {moveStagingMutation.isPending && (
+              <Center>
+                <Loader size="sm" color="var(--warm-gold)" />
+              </Center>
+            )}
+          </Stack>
+        )}
+      </Modal>
     </Container>
   );
 };
@@ -161,9 +313,10 @@ const GalleryPage: React.FC<GalleryPageProps> = ({ user }) => {
 interface GalleryCardProps {
   staging: Staging;
   onClick: () => void;
+  onMoveToProject: () => void;
 }
 
-const GalleryCard: React.FC<GalleryCardProps> = ({ staging, onClick }) => {
+const GalleryCard: React.FC<GalleryCardProps> = ({ staging, onClick, onMoveToProject }) => {
   // Use the staged image as thumbnail if available, otherwise original
   const thumbnailUrl = staging.staged_image_url
     ? stagingApi.buildImageUrl(staging.staged_image_url)
@@ -190,7 +343,6 @@ const GalleryCard: React.FC<GalleryCardProps> = ({ staging, onClick }) => {
         border: '1px solid var(--light-gray)',
         transition: 'transform 0.2s ease, box-shadow 0.2s ease',
       }}
-      onClick={onClick}
       onMouseEnter={(e) => {
         e.currentTarget.style.transform = 'translateY(-4px)';
         e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.12)';
@@ -208,7 +360,9 @@ const GalleryCard: React.FC<GalleryCardProps> = ({ staging, onClick }) => {
             borderRadius: '8px',
             overflow: 'hidden',
             background: 'var(--light-gray)',
+            position: 'relative',
           }}
+          onClick={onClick}
         >
           {thumbnailUrl ? (
             <Image
@@ -228,7 +382,7 @@ const GalleryCard: React.FC<GalleryCardProps> = ({ staging, onClick }) => {
         </div>
 
         {/* Info */}
-        <div>
+        <div onClick={onClick}>
           <Group justify="space-between" align="flex-start">
             <div style={{ flex: 1, minWidth: 0 }}>
               <Text size="sm" fw={500} c="charcoal" lineClamp={1}>
@@ -240,16 +394,42 @@ const GalleryCard: React.FC<GalleryCardProps> = ({ staging, onClick }) => {
                 </Text>
               )}
             </div>
-            <Badge
-              size="xs"
-              color={
-                staging.status === 'completed' ? 'green' :
-                staging.status === 'processing' ? 'blue' : 'red'
-              }
-              variant="light"
-            >
-              {staging.status}
-            </Badge>
+            <Group gap="xs">
+              <Badge
+                size="xs"
+                color={
+                  staging.status === 'completed' ? 'green' :
+                  staging.status === 'processing' ? 'blue' : 'red'
+                }
+                variant="light"
+              >
+                {staging.status}
+              </Badge>
+              <Menu shadow="md" width={180} position="bottom-end">
+                <Menu.Target>
+                  <Button
+                    variant="subtle"
+                    color="gray"
+                    size="compact-xs"
+                    onClick={(e) => e.stopPropagation()}
+                    p={4}
+                  >
+                    <IconDotsVertical size={14} />
+                  </Button>
+                </Menu.Target>
+                <Menu.Dropdown>
+                  <Menu.Item
+                    leftSection={<IconFolderPlus size={14} />}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onMoveToProject();
+                    }}
+                  >
+                    Move to Project
+                  </Menu.Item>
+                </Menu.Dropdown>
+              </Menu>
+            </Group>
           </Group>
           <Text size="xs" c="dimmed" mt="xs">
             {formatDate(staging.created_at)}

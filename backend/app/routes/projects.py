@@ -128,19 +128,7 @@ async def get_project(
         "staging_count": len(project.stagings) if project.stagings else 0,
         "created_at": project.created_at.isoformat() if project.created_at else None,
         "updated_at": project.updated_at.isoformat() if project.updated_at else None,
-        "stagings": [
-            {
-                "id": str(s.id),
-                "status": s.status,
-                "original_image_path": s.original_image_path,
-                "staged_image_path": s.staged_image_path,
-                "style": s.style,
-                "room_type": s.room_type,
-                "created_at": s.created_at.isoformat() if s.created_at else None,
-                "completed_at": s.completed_at.isoformat() if s.completed_at else None,
-            }
-            for s in (project.stagings or [])
-        ]
+        "stagings": [s.to_dict() for s in (project.stagings or [])]
     }
 
 
@@ -236,3 +224,51 @@ async def get_unsorted_stagings(
     return {
         "stagings": [s.to_dict() for s in stagings]
     }
+
+
+class MoveStagingRequest(BaseModel):
+    project_id: Optional[str] = None
+
+
+@router.patch("/stagings/{staging_id}/project")
+async def move_staging_to_project(
+    staging_id: UUID,
+    request: MoveStagingRequest,
+    current_user: User = Depends(get_current_user_required),
+    db: Session = Depends(get_db)
+):
+    """Move a staging to a different project or remove from project."""
+    # Find the staging
+    staging = db.query(Staging).filter(
+        Staging.id == staging_id,
+        Staging.user_id == current_user.id
+    ).first()
+
+    if not staging:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Staging not found"
+        )
+
+    # If project_id is provided, verify it belongs to the user
+    if request.project_id:
+        project = db.query(Project).filter(
+            Project.id == request.project_id,
+            Project.user_id == current_user.id
+        ).first()
+
+        if not project:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Project not found"
+            )
+
+        staging.project_id = project.id
+    else:
+        # Remove from project (move to unsorted)
+        staging.project_id = None
+
+    db.commit()
+    db.refresh(staging)
+
+    return staging.to_dict()

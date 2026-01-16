@@ -118,6 +118,10 @@ const AppShell: React.FC = () => {
     setSidebarOpen(false);
   };
 
+  const handleClearProject = () => {
+    setCurrentProjectId(undefined);
+  };
+
   return (
     <>
       <Routes>
@@ -148,6 +152,7 @@ const AppShell: React.FC = () => {
                   onGenerationRequest={handleGenerationRequest}
                   user={user}
                   currentProjectId={currentProjectId}
+                  onClearProject={handleClearProject}
                 />
               </main>
 

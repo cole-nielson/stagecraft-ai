@@ -3,7 +3,7 @@ import { Drawer, Stack, Text, Button, Card, Group, ActionIcon, Badge, ScrollArea
 import { IconPlus, IconTrash, IconEdit, IconDotsVertical, IconX, IconChevronRight, IconInbox, IconDownload, IconPhoto } from '@tabler/icons-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { useProjects, useUnsortedStagings, useDeleteProject } from '../hooks/useProjects';
+import { useProjects, useUnsortedStagings, useDeleteProject, useProject } from '../hooks/useProjects';
 import { User, Project, Staging } from '../types';
 import { stagingApi } from '../services/api';
 
@@ -185,6 +185,11 @@ const Sidebar: React.FC<SidebarProps> = ({
                     onSelect={() => onSelectProject(project.id)}
                     onDelete={() => handleDeleteProject(project.id)}
                     formatTime={formatTime}
+                    onStagingClick={(staging) => setSelectedStaging(staging)}
+                    onViewAllInGallery={(projectId) => {
+                      onClose();
+                      navigate(`/gallery?project=${projectId}`);
+                    }}
                   />
                 ))
               ) : (
@@ -440,6 +445,8 @@ interface ProjectCardProps {
   onSelect: () => void;
   onDelete: () => void;
   formatTime: (date?: string) => string;
+  onStagingClick: (staging: Staging) => void;
+  onViewAllInGallery: (projectId: string) => void;
 }
 
 const ProjectCard: React.FC<ProjectCardProps> = ({
@@ -450,7 +457,12 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
   onSelect,
   onDelete,
   formatTime,
+  onStagingClick,
+  onViewAllInGallery,
 }) => {
+  // Fetch project details with stagings when expanded
+  const { data: projectWithStagings, isLoading: stagingsLoading } = useProject(isExpanded ? project.id : null);
+
   return (
     <motion.div
       initial={{ opacity: 0, x: -20 }}
@@ -530,7 +542,7 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
             </Menu>
           </Group>
 
-          {/* Expanded content placeholder */}
+          {/* Expanded content - Show project stagings */}
           <AnimatePresence>
             {isExpanded && (
               <motion.div
@@ -539,11 +551,37 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
                 exit={{ opacity: 0, height: 0 }}
                 transition={{ duration: 0.2 }}
               >
-                <Stack gap="xs" pl="lg">
-                  {project.staging_count > 0 ? (
-                    <Text size="xs" c="dimmed">
-                      Click "Open" to view stagings
-                    </Text>
+                <Stack gap="xs" pl="lg" pt="xs">
+                  {stagingsLoading ? (
+                    <Center py="sm">
+                      <Loader size="xs" color="var(--warm-gold)" />
+                    </Center>
+                  ) : projectWithStagings?.stagings && projectWithStagings.stagings.length > 0 ? (
+                    <>
+                      {/* Show up to 3 recent stagings */}
+                      {projectWithStagings.stagings.slice(0, 3).map((staging) => (
+                        <StagingItem
+                          key={staging.id}
+                          staging={staging}
+                          formatTime={formatTime}
+                          onClick={() => onStagingClick(staging)}
+                        />
+                      ))}
+
+                      {/* View All in Gallery button */}
+                      {projectWithStagings.stagings.length > 0 && (
+                        <Button
+                          variant="light"
+                          color="yellow"
+                          size="xs"
+                          fullWidth
+                          onClick={() => onViewAllInGallery(project.id)}
+                          rightSection={<IconChevronRight size={14} />}
+                        >
+                          View All in Gallery
+                        </Button>
+                      )}
+                    </>
                   ) : (
                     <div
                       style={{
